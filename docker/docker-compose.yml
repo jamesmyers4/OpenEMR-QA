@@ -1,0 +1,49 @@
+services:
+  mariadb:
+    image: mariadb:11.4
+    ports:
+      - "3306:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: openemr
+      MYSQL_USER: openemr
+      MYSQL_PASSWORD: openemr
+    volumes:
+      - dbvolume:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
+  openemr:
+    image: openemr/openemr:7.0.3
+    depends_on:
+      mariadb:
+        condition: service_healthy
+    ports:
+      - "8300:80"
+      - "9300:443"
+    environment:
+      MYSQL_HOST: mariadb
+      MYSQL_ROOT_PASS: root
+      MYSQL_USER: openemr
+      MYSQL_PASS: openemr
+      OE_USER: admin
+      OE_PASS: pass
+      OPENEMR_SETTING_rest_api: 1
+      OPENEMR_SETTING_fhir_api: 1
+      OPENEMR_SETTING_oauth_password_grant: 1
+      DEMO_MODE: standard
+      EASY_DEV_MODE: 1
+    volumes:
+      - sitesvolume:/var/www/localhost/htdocs/openemr/sites
+    healthcheck:
+      test: ["CMD", "curl", "-fk", "https://localhost/apis/api/version"]
+      interval: 15s
+      timeout: 10s
+      retries: 20
+
+volumes:
+  dbvolume:
+  sitesvolume:

@@ -1,0 +1,67 @@
+name: OpenEMR Test Suite
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Start OpenEMR stack
+        run: docker compose -f docker/docker-compose.yml up -d
+
+      - name: Wait for OpenEMR to be healthy
+        run: |
+          for i in $(seq 1 40); do
+            status=$(docker inspect --format='{{.State.Health.Status}}' $(docker compose -f docker/docker-compose.yml ps -q openemr) 2>/dev/null || echo starting)
+            if [ "$status" = "healthy" ]; then echo "OpenEMR is healthy"; exit 0; fi
+            echo "Waiting for OpenEMR... ($status)"
+            sleep 15
+          done
+          echo "OpenEMR never became healthy" && exit 1
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Restore and run API + DB tests
+        working-directory: tests
+        run: |
+          dotnet restore OpenEmr.Tests.sln
+          dotnet test OpenEmr.Tests.sln --logger "trx;LogFileName=results.trx" --results-directory ./TestResults
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install UI test dependencies
+        working-directory: ui
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium firefox
+
+      - name: Run UI tests
+        working-directory: ui
+        run: npx playwright test
+
+      - name: Upload test artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: |
+            tests/TestResults
+            ui/playwright-report
+          retention-days: 14
+
+      - name: Tear down stack
+        if: always()
+        run: docker compose -f docker/docker-compose.yml down -v
