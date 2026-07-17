@@ -1,6 +1,9 @@
+using Xunit;
 using System.Net.Http.Json;
 using System.Text.Json;
 using Microsoft.Extensions.Configuration;
+using MySqlConnector;
+using Dapper;
 
 namespace OpenEmr.Api.Tests.Fixtures;
 
@@ -12,6 +15,7 @@ public class OpenEmrOptions
     public string AdminPassword { get; set; } = string.Empty;
     public string ClientName { get; set; } = string.Empty;
     public string Scope { get; set; } = string.Empty;
+    public string DbConnectionString { get; set; } = string.Empty;
 }
 
 public class OAuthTokenFixture : IAsyncLifetime
@@ -33,8 +37,9 @@ public class OAuthTokenFixture : IAsyncLifetime
 
     public async Task InitializeAsync()
     {
-        var clientId = await RegisterClientAsync();
-        AccessToken = await RequestPasswordGrantTokenAsync(clientId);
+        var (clientId, clientSecret) = await RegisterClientAsync();
+        await EnableClientAsync(clientId);
+        AccessToken = await RequestPasswordGrantTokenAsync(clientId, clientSecret);
         Client.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", AccessToken);
     }
 
@@ -44,7 +49,7 @@ public class OAuthTokenFixture : IAsyncLifetime
         return Task.CompletedTask;
     }
 
-    private async Task<string> RegisterClientAsync()
+    private async Task<(string ClientId, string ClientSecret)> RegisterClientAsync()
     {
         var registrationUrl = $"/oauth2/{Options.SiteId}/registration";
         var payload = new
@@ -59,16 +64,24 @@ public class OAuthTokenFixture : IAsyncLifetime
         var response = await Client.PostAsJsonAsync(registrationUrl, payload);
         response.EnsureSuccessStatusCode();
         var body = await response.Content.ReadFromJsonAsync<JsonElement>();
-        return body.GetProperty("client_id").GetString()!;
+        return (body.GetProperty("client_id").GetString()!, body.GetProperty("client_secret").GetString()!);
     }
 
-    private async Task<string> RequestPasswordGrantTokenAsync(string clientId)
+    private async Task EnableClientAsync(string clientId)
+    {
+        await using var connection = new MySqlConnection(Options.DbConnectionString);
+        await connection.OpenAsync();
+        await connection.ExecuteAsync("UPDATE oauth_clients SET is_enabled = 1 WHERE client_id = @ClientId", new { ClientId = clientId });
+    }
+
+    private async Task<string> RequestPasswordGrantTokenAsync(string clientId, string clientSecret)
     {
         var tokenUrl = $"/oauth2/{Options.SiteId}/token";
         var form = new Dictionary<string, string>
         {
             ["grant_type"] = "password",
             ["client_id"] = clientId,
+            ["client_secret"] = clientSecret,
             ["username"] = Options.AdminUser,
             ["password"] = Options.AdminPassword,
             ["scope"] = Options.Scope,

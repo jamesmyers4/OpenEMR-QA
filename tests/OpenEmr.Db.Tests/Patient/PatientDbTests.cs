@@ -1,3 +1,5 @@
+using Xunit;
+using System.Net;
 using Dapper;
 using FluentAssertions;
 using OpenEmr.Db.Tests.Fixtures;
@@ -15,7 +17,7 @@ public class PatientDbTests
     }
 
     [Fact]
-    public async Task Demo_Seed_Data_Contains_Patients()
+    public async Task Patient_Table_Has_Seeded_Fixture_Rows()
     {
         var count = await _fixture.Connection.ExecuteScalarAsync<int>("SELECT COUNT(*) FROM patient_data");
         count.Should().BeGreaterThan(0);
@@ -53,10 +55,11 @@ public class PatientDbTests
     public async Task Direct_Insert_Is_Immediately_Readable_Then_Rolled_Back()
     {
         await using var transaction = await _fixture.Connection.BeginTransactionAsync();
-        var insertSql = "INSERT INTO patient_data (fname, lname, DOB, sex) VALUES (@FirstName, @LastName, @Dob, @Sex)";
-        await _fixture.Connection.ExecuteAsync(insertSql, new { FirstName = "Margaret", LastName = "Hamilton", Dob = "1936-08-17", Sex = "Female" }, transaction);
+        var nextPid = await _fixture.Connection.ExecuteScalarAsync<int>("SELECT IFNULL(MAX(pid), 0) + 1 FROM patient_data", transaction: transaction);
+        var insertSql = "INSERT INTO patient_data (pid, fname, lname, DOB, sex) VALUES (@Pid, @FirstName, @LastName, @Dob, @Sex)";
+        await _fixture.Connection.ExecuteAsync(insertSql, new { Pid = nextPid, FirstName = "Margaret", LastName = "Hamilton", Dob = "1936-08-17", Sex = "Female" }, transaction);
         var pid = await _fixture.Connection.ExecuteScalarAsync<int>("SELECT pid FROM patient_data WHERE lname = @LastName", new { LastName = "Hamilton" }, transaction);
-        pid.Should().BeGreaterThan(0);
+        pid.Should().Be(nextPid);
         await transaction.RollbackAsync();
     }
 }

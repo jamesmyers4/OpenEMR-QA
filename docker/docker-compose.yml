@@ -39,7 +39,8 @@ services:
     volumes:
       - sitesvolume:/var/www/localhost/htdocs/openemr/sites
     healthcheck:
-      test: ["CMD", "curl", "-fk", "https://localhost/apis/api/version"]
+      test:
+        ["CMD", "curl", "-fk", "https://localhost/interface/login/login.php"]
       interval: 15s
       timeout: 10s
       retries: 20
