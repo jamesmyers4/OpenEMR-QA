@@ -1,4 +1,4 @@
-import type { Page, Locator, FrameLocator } from '@playwright/test'
+import type { Page, Locator, FrameLocator, Frame } from '@playwright/test'
 
 export class PatientRegistrationPage {
   readonly page: Page
@@ -34,6 +34,28 @@ export class PatientRegistrationPage {
 
   createButton(): Locator {
     return this.content().locator('#create')
+  }
+
+  searchButton(): Locator {
+    return this.content().locator('#search')
+  }
+
+  resultsPopupFrame(): Frame | null {
+    return this.page.frame({ url: /patient_select\.php/ })
+  }
+
+  async searchForExisting(lastName: string): Promise<void> {
+    await this.lastNameInput().fill(lastName)
+    await this.searchButton().click()
+  }
+
+  async selectSearchResult(matchText: string): Promise<void> {
+    const frame = this.resultsPopupFrame()
+    await frame?.locator('tr.oneresult', { hasText: matchText }).first().click()
+    await this.page.evaluate(() => {
+      document.querySelectorAll('.dialogModal').forEach(el => el.remove())
+      document.querySelectorAll('.modal-backdrop').forEach(el => el.remove())
+    })
   }
 
   async fillRequiredFields(firstName: string, lastName: string, dob: string, sex: string): Promise<void> {

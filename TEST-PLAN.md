@@ -58,7 +58,8 @@ Status legend: `[x]` scaffolded with a real test, `[ ]` planned, not yet written
 - [x] Patient registration: new patient intake form (happy path), required-field validation — verified against live instance
 - [x] Patient registration: duplicate patient detection — verified; OpenEMR's own new-patient flow always runs a name+DOB match check and shows a review popup (even on zero matches), covered by `patient-registration.spec.ts`
 - [ ] Clinical encounter: open encounter, add a SOAP note, sign/lock encounter
-- [ ] Billing: generate a claim, apply a payment
+- [x] Billing: apply a payment — verified against live instance (`billing-payment.spec.ts`); creates a patient, opens a visit via Patient > Visits > Create Visit, then posts a cash payment via Fees > Payment and asserts the resulting receipt. Claim generation is still open, not covered by this test.
+- [ ] Billing: generate a claim
 - [ ] RBAC in the UI: a front-desk role can't see clinical notes, a provider role can't access admin settings
 - [ ] Patient portal: separate login flow, patient can view own appointments only
 
