@@ -50,10 +50,13 @@ Status legend: `[x]` scaffolded with a real test, `[ ]` planned, not yet written
 
 ## Layer 3 — UI (Playwright/TypeScript)
 
-- [x] Auth: valid login, invalid password, empty password, logout
-- [x] Scheduling: create appointment, double-booking blocked, cancel appointment
+- [x] Auth: valid login, invalid password, empty password, logout — verified against live instance
+- [x] Scheduling: create appointment shows on calendar — verified against live instance
+- [x] Scheduling: double-booking same provider slot — verified as a **soft warning** (`confirm("Provider not available, use it anyway?")`), not a hard block; the checkbox label above undersold this until it was actually run. See `HANDOFF.md` for the still-flaky test and open follow-up.
+- [ ] Scheduling: cancel appointment — spec exists (`patient-scheduling.spec.ts`) but currently fails; the delete action doesn't remove the event from the day view. Real bug, not yet root-caused. See `HANDOFF.md`.
 - [ ] Scheduling: reschedule/drag-drop, recurring appointment series, provider-availability filtering
-- [ ] Patient registration: new patient intake form, required-field validation, duplicate patient detection
+- [x] Patient registration: new patient intake form (happy path), required-field validation — verified against live instance
+- [x] Patient registration: duplicate patient detection — verified; OpenEMR's own new-patient flow always runs a name+DOB match check and shows a review popup (even on zero matches), covered by `patient-registration.spec.ts`
 - [ ] Clinical encounter: open encounter, add a SOAP note, sign/lock encounter
 - [ ] Billing: generate a claim, apply a payment
 - [ ] RBAC in the UI: a front-desk role can't see clinical notes, a provider role can't access admin settings
@@ -61,7 +64,7 @@ Status legend: `[x]` scaffolded with a real test, `[ ]` planned, not yet written
 
 ## Gaps outside the three core layers (worth adding once the above is solid)
 
-- [ ] **Accessibility** — axe-core scan on login, calendar, and patient registration pages (you already have this pattern from Shenny)
+- [ ] **Accessibility** — axe-core scan on login, calendar, and patient registration pages (you already have this pattern from Shenny). `treeLine-output/openemr-qa/reports/axe-report.md` already has a full 95-page axe-core baseline (607 violations) from the treeLine crawl — worth reviewing as a starting point before writing this from scratch.
 - [ ] **Load/performance** — k6 script hitting the appointment-booking endpoint under concurrent load, checking for booking conflicts you'd only see under contention (you already have this pattern from Shenny too)
 - [ ] **Contract/schema validation** — validate FHIR responses against the official FHIR R4 JSON schema, not just spot-checking a few fields
 - [ ] **Security/negative** — SQL-injection-shaped input into search fields, XSS-shaped input into free-text fields, session-fixation on login

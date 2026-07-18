@@ -10,7 +10,7 @@ export class LoginPage {
     this.page = page
     this.usernameInput = page.locator('input[name="authUser"]')
     this.passwordInput = page.locator('input[name="clearPass"]')
-    this.submitButton = page.locator('#login_button')
+    this.submitButton = page.locator('#login-button')
   }
 
   async goto(): Promise<void> {
@@ -21,5 +21,11 @@ export class LoginPage {
     await this.usernameInput.fill(username)
     await this.passwordInput.fill(password)
     await this.submitButton.click()
+    await this.dismissRegistrationModalIfPresent()
+  }
+
+  async dismissRegistrationModalIfPresent(): Promise<void> {
+    const askAgainLater = this.page.getByRole('button', { name: 'Ask again later' })
+    await askAgainLater.click({ timeout: 3000 }).catch(() => undefined)
   }
 }
