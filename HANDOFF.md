@@ -4,7 +4,7 @@ Point-in-time snapshot for a fresh Claude (chat or Claude Code) session picking 
 
 ## Snapshot Summary
 
-Environment is fully working end-to-end: Docker stack (OpenEMR + MariaDB), OAuth2 authentication (including the client dynamic-registration + DB-side enable step), and the C# API + DB test layers are all confirmed functional against a live instance. Current state: **13 of 15 API/DB tests passing.** The 2 remaining failures are both the FHIR-access issue — a single known, understood root cause, not two separate mysteries.
+Environment is fully working end-to-end: Docker stack (OpenEMR + MariaDB), OAuth2 authentication (including the client dynamic-registration + DB-side enable step), and the C# API + DB test layers are all confirmed functional against a live instance. Current state: **19 of 21 API/DB tests passing.** The 2 remaining failures are both the FHIR-access issue — a single known, understood root cause, not two separate mysteries.
 
 The UI layer (Playwright/TypeScript) is scaffolded but has not yet been run against the live instance beyond one confirmed selector fix. It has not been debugged the way the API/DB layers have.
 
@@ -37,20 +37,30 @@ dotnet test OpenEmr.Tests.sln
 
 ## Current Test Status
 
-### Passing (13)
+### Passing (19)
 
 - All `OpenEmr.Db.Tests` (5) — fixture seeding, referential integrity, transactional insert/rollback pattern
 - `Create_Patient_Returns_Created_With_New_Pid`, `Get_Patient_List_Returns_Seeded_Demo_Patients`, `Get_Patient_By_Pid_Returns_Matching_Record`, `Update_Patient_Persists_Changed_Fields`, `Create_Patient_Missing_Required_Field_Returns_BadRequest` (all Patient API tests except FHIR)
 - `Create_Appointment_Returns_Created_With_New_Eid`, `Get_Appointments_For_Patient_Returns_Only_That_Patients_Visits`, `Double_Booking_Same_Slot_Same_Provider_Is_Allowed_With_Distinct_Ids` (all Appointment API tests except FHIR)
+- `Create_Encounter_Returns_Created_With_New_Euuid`, `Get_Encounters_For_Patient_Returns_Only_That_Patients_Encounters`, `Close_Encounter_Sets_Last_Level_Closed_True` (all Encounter API tests, new this session)
+- `Get_Practitioner_List_Returns_Practitioner_With_Username`, `Get_Practitioner_By_Uuid_Returns_Matching_Record`, `Create_Practitioner_Without_Username_Is_Invisible_To_List_And_Get` (all Practitioner API tests, new this session)
 
 ### Failing (2) — one root cause, not a mystery
 
 1. **`Fhir_Patient_Search_Returns_Valid_Bundle`** and **`Fhir_Appointment_Search_Returns_Valid_Bundle`** — now both `501 Not Implemented` with an empty body (confirmed via direct `curl` against `GET /apis/default/fhir/Patient` with a valid bearer token — this is a status-code change from the previously-documented `401 Unauthorized`, not a re-investigation of the same failure). A `501` from the app itself suggests the FHIR route genuinely isn't wired up in this environment, which is a different diagnosis than "wrong OAuth scope string" — worth a fresh look before assuming the old scope-string theory still applies. Ideally investigate via the instance's own Swagger UI (`https://localhost:9300/swagger/`) rather than guessing again. Still low priority relative to REST coverage; still explicitly deferred, not attempted this session.
 
-**Resolved this session** (previously 2 of the 4 known failures, now fixed in `AppointmentApiTests.cs`):
+**Resolved in a prior session** (previously 2 of the 4 known failures, fixed in `AppointmentApiTests.cs`):
 
 - **Appointment list per-item shape** — root-caused via a raw `curl` GET against `/apis/default/api/patient/{pid}/appointment`: the response root **is the array itself** (`[{...}, {...}]`), not an object with a `data` property. The original test's `.GetProperty("data")` call on an array-typed root element was the exact source of the `InvalidOperationException`. Fixed by parsing the root as an array directly and asserting every item's `pid` matches the test patient, which is what the test's name always claimed to check but never actually did.
 - **Double-booking "conflict"** — confirmed via direct `curl` (two identical POSTs to the same patient/slot/provider) that OpenEMR's REST API returns `200 OK` with a new distinct `id` both times; there is no server-side conflict enforcement. This matches the UI-layer finding (soft `confirm()` warning, not a hard block — see UI Layer Status below). The test was renamed to `Double_Booking_Same_Slot_Same_Provider_Is_Allowed_With_Distinct_Ids` and now asserts the real, confirmed product behavior instead of an assumption that was never true.
+
+**New this session — Encounter and Practitioner resource coverage** (`EncounterApiTests.cs`, `PractitionerApiTests.cs`), following `TEST-PLAN.md`'s suggested build order of finishing Layer 1 (API) resource-by-resource. All shapes verified against the live container via direct `curl` and by reading the relevant `RestController`/`Service`/`Validator` PHP source before writing any C# — see `CONTEXT.md`'s Known Constraints for the full detail on each finding below:
+
+- Encounter's patient route parameter is the patient **UUID** (`puuid`), not `pid` — different from Appointment's `pid`-based routes. `EncounterApiTests` creates its fixture patient and captures `uuid` (not `pid`) for this reason.
+- Encounter's list endpoint wraps its array in a `data` property, unlike Appointment's bare-array list response — another per-resource enveloping inconsistency, not a pattern to assume carries over.
+- Closing/signing an encounter is done via `PUT /api/patient/{puuid}/encounter/{euuid}` with `last_level_closed: "1"` — there's no dedicated close/sign action route. This `PUT` call requires the caller to explicitly pass `user` (a valid username) and `group` (any string) in the body; unlike `POST`, the controller does not inject these from the session automatically, and omitting them returns a `400` that isn't documented in the OpenAPI comments.
+- Practitioners created via `POST /api/practitioner` without a `username` field are permanently invisible to both `GET /api/practitioner` and `GET /api/practitioner/{uuid}` — confirmed root cause in `PractitionerService::search()`, which filters out any `users` row with a null/empty username by default. `Create_Practitioner_Without_Username_Is_Invisible_To_List_And_Get` asserts this real (if surprising) behavior directly rather than treating it as a bug to route around silently.
+- `appsettings.test.json`'s OAuth `Scope` string now also requests `user/practitioner.read`/`user/practitioner.write`, needed for the new Practitioner tests.
 
 ## UI Layer Status
 
@@ -82,7 +92,7 @@ The authenticated-crawl support this section anticipated now exists and has been
 1. Root-cause the cancel-appointment UI bug — `CalendarPage.deleteCurrentEvent()` doesn't remove the row from `openemr_postcalendar_events`, see UI Layer Status above for the specific next debugging step.
 2. Build the scheduled GitHub Actions workflows (daily/weekly) with failure alerting — CI currently only triggers on push/PR.
 3. Investigate the FHIR `501 Not Implemented` — now a status-code change from the previously-documented `401`, worth a fresh look rather than resuming the old scope-string theory. Still low priority relative to REST coverage.
-4. Continue expanding `TEST-PLAN.md`'s open items resource-by-resource (Encounter, Practitioner, Facility, etc. on the API side; the still-open UI items — reschedule/drag-drop, clinical encounter, billing, RBAC).
+4. Continue expanding `TEST-PLAN.md`'s open API items resource-by-resource — Encounter and Practitioner are now done (this session); Facility, Insurance, Allergy, Immunization, Procedure/Prescription, Document, and Message are still open, plus Appointment update/reschedule/cancel/recurring. The still-open UI items (reschedule/drag-drop, clinical encounter, billing, RBAC) remain untouched.
 5. Longer-term, once the above is solid: begin the deliberate "grey area" reliability-testing phase described in `CONTEXT.md` — this should not be started early.
 
 ## Collaboration Notes

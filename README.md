@@ -19,7 +19,7 @@ docker compose up -d
 
 Wait for the OpenEMR container to report healthy (`docker compose ps`) before running any tests — first boot runs migrations and demo-data seeding and can take a few minutes.
 
-Default seeded admin credentials: `admin` / `pass`.2
+Default seeded admin credentials: `admin` / `pass`.
 
 ## 2. Run the API + DB tests
 
@@ -38,7 +38,7 @@ npx playwright install
 npx playwright test
 ```
 
-Run `npx playwright test --ui` for the interactive runner while you're building out new specs, or `npx playwright codegen https://localhost:9300` to confirm real selectors against the running container before writing more UI specs — the ones in `pages/` are a best-effort starting point, not verified against a live instance yet.
+Run `npx playwright test --ui` for the interactive runner while you're building out new specs, or `npx playwright codegen https://localhost:9300` to confirm real selectors against the running container before writing more UI specs — `LoginPage`, `PatientRegistrationPage`, and `CalendarPage` in `pages/` are debugged and verified against a live instance; any other page a future spec touches should still be treated as unverified until confirmed live.
 
 ## Repo layout
 
@@ -59,4 +59,4 @@ ui/
 
 ## Status
 
-API + DB layers have working coverage for Patient and Appointment resources, with 4 known/root-caused failures being worked through (see `HANDOFF.md`). The UI layer has debugged, live-verified specs for auth, patient registration, and most of scheduling. The bulk of resource/table/workflow coverage in `TEST-PLAN.md` is still `[ ]` — that's the actual work.
+API + DB layers have working coverage for Patient, Appointment, Encounter, and Practitioner resources — 19 of 21 tests passing, with 2 known/root-caused FHIR failures being worked through (see `HANDOFF.md`). The UI layer has debugged, live-verified specs for auth, patient registration, and most of scheduling. The bulk of resource/table/workflow coverage in `TEST-PLAN.md` is still `[ ]` — that's the actual work.

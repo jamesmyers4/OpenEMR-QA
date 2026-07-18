@@ -12,8 +12,8 @@ Status legend: `[x]` scaffolded with a real test, `[ ]` planned, not yet written
 - [x] Patient: create, list, get by id, update, missing-required-field
 - [x] Appointment: create, list-by-patient, double-booking (confirmed allowed as a soft warning, not a hard conflict)
 - [ ] Appointment: update/reschedule, cancel, recurring series
-- [ ] Encounter: create, list-by-patient, close/sign encounter
-- [ ] Practitioner: list, get by id
+- [x] Encounter: create, list-by-patient, close/sign encounter
+- [x] Practitioner: list, get by id
 - [ ] Facility: list, get by id
 - [ ] Insurance: create, get by patient
 - [ ] Allergy: create, list-by-patient, delete
