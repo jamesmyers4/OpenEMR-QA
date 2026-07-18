@@ -10,7 +10,7 @@ Status legend: `[x]` scaffolded with a real test, `[ ]` planned, not yet written
 
 ### Legacy REST (`/apis/{site}/api`)
 - [x] Patient: create, list, get by id, update, missing-required-field
-- [x] Appointment: create, list-by-patient, double-booking conflict
+- [x] Appointment: create, list-by-patient, double-booking (confirmed allowed as a soft warning, not a hard conflict)
 - [ ] Appointment: update/reschedule, cancel, recurring series
 - [ ] Encounter: create, list-by-patient, close/sign encounter
 - [ ] Practitioner: list, get by id

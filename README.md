@@ -2,7 +2,7 @@
 
 Full-stack test automation portfolio project: API and DB tests in C#/xUnit, UI tests in Playwright/TypeScript, run against a self-hosted OpenEMR instance.
 
-See `docs/CONTEXT.md` for the framing/stack decisions and `docs/TEST-PLAN.md` for the coverage matrix and current progress.
+See `CONTEXT.md` for the framing/stack decisions and `TEST-PLAN.md` for the coverage matrix and current progress.
 
 ## Prerequisites
 
@@ -44,6 +44,9 @@ Run `npx playwright test --ui` for the interactive runner while you're building 
 
 ```
 CLAUDE.md                 instructions for Claude Code sessions in this repo
+CONTEXT.md                stack decisions, open questions
+TEST-PLAN.md              full coverage matrix and build order
+HANDOFF.md                point-in-time snapshot of current build status
 docker/                  docker-compose stack for OpenEMR + MariaDB
 tests/
   OpenEmr.Api.Tests/      REST + FHIR API tests
@@ -51,12 +54,9 @@ tests/
 ui/
   pages/                  Playwright page objects
   tests/                  Playwright specs
-docs/
-  CONTEXT.md              stack decisions, open questions
-  TEST-PLAN.md            full coverage matrix and build order
 .github/workflows/ci.yml  spins up the stack and runs all three layers
 ```
 
 ## Status
 
-Scaffolding is in place with a working example in each layer (Patient + Appointment on the API side, matching DB checks, auth + scheduling on the UI side). The bulk of resource/table/workflow coverage in `docs/TEST-PLAN.md` is still `[ ]` — that's the actual work.
+API + DB layers have working coverage for Patient and Appointment resources, with 4 known/root-caused failures being worked through (see `HANDOFF.md`). The UI layer has debugged, live-verified specs for auth, patient registration, and most of scheduling. The bulk of resource/table/workflow coverage in `TEST-PLAN.md` is still `[ ]` — that's the actual work.

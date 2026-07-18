@@ -38,19 +38,24 @@ public class AppointmentApiTests
         var raw = await response.Content.ReadAsStringAsync();
         response.StatusCode.Should().Be(HttpStatusCode.OK, "response body was: {0}", raw);
         var body = JsonDocument.Parse(raw).RootElement;
-        body.GetProperty("data").GetArrayLength().Should().BeGreaterThan(0, "response body was: {0}", raw);
+        body.ValueKind.Should().Be(JsonValueKind.Array, "response body was: {0}", raw);
+        body.GetArrayLength().Should().BeGreaterThan(0, "response body was: {0}", raw);
+        body.EnumerateArray().Should().OnlyContain(item => item.GetProperty("pid").GetInt32() == pid, "response body was: {0}", raw);
     }
 
     [Fact]
-    public async Task Double_Booking_Same_Slot_Same_Provider_Returns_Conflict()
+    public async Task Double_Booking_Same_Slot_Same_Provider_Is_Allowed_With_Distinct_Ids()
     {
         var pid = await CreateTestPatientAsync("Katherine", "Johnson");
         var first = await CreateTestAppointmentAsync(pid, "10:00", DateTime.UtcNow.AddDays(5));
         var firstRaw = await first.Content.ReadAsStringAsync();
         first.StatusCode.Should().Be(HttpStatusCode.OK, "response body was: {0}", firstRaw);
+        var firstId = JsonDocument.Parse(firstRaw).RootElement.GetProperty("id").GetInt32();
         var second = await CreateTestAppointmentAsync(pid, "10:00", DateTime.UtcNow.AddDays(5));
         var secondRaw = await second.Content.ReadAsStringAsync();
-        second.StatusCode.Should().Be(HttpStatusCode.Conflict, "response body was: {0}", secondRaw);
+        second.StatusCode.Should().Be(HttpStatusCode.OK, "response body was: {0}", secondRaw);
+        var secondId = JsonDocument.Parse(secondRaw).RootElement.GetProperty("id").GetInt32();
+        secondId.Should().NotBe(firstId, "response body was: {0}", secondRaw);
     }
 
     [Fact]

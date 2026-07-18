@@ -1,10 +1,10 @@
 # CLAUDE.md
 
-Instructions for Claude Code when working in this repo. Read `docs/CONTEXT.md` first for the why; read `docs/TEST-PLAN.md` for what's currently built vs. still open — that file is the source of truth for what to work on next.
+Instructions for Claude Code when working in this repo. Read `CONTEXT.md` first for the why; read `TEST-PLAN.md` for what's currently built vs. still open — that file is the source of truth for what to work on next.
 
 ## Before making changes
 
-1. Check `docs/TEST-PLAN.md` for the item being worked on and its current `[ ]`/`[x]` status.
+1. Check `TEST-PLAN.md` for the item being worked on and its current `[ ]`/`[x]` status.
 2. If the item touches OpenEMR API fields, table names, or UI selectors you're not certain about, verify against the running container (`docker compose -f docker/docker-compose.yml up -d`, then hit the endpoint or inspect the DOM/table directly) or against `API_README.md` in the OpenEMR repo rather than guessing. Several selectors and a couple of schema assumptions in this repo are best-effort placeholders — do not assume existing code is already verified just because it's present.
 
 ## Running things
@@ -35,7 +35,7 @@ cd ui && npm install && npx playwright install && npx playwright test
 - Follows the naming and fixture conventions above
 - Actually run once (`dotnet test` filtered to the class, or `playwright test <file>`) — don't hand back a test that's only been read, not executed
 - Corresponding checkbox in `docs/TEST-PLAN.md` flipped from `[ ]` to `[x]`
-- If it revealed an OpenEMR schema/API detail that contradicts something written in `docs/CONTEXT.md` (table name, field name, response shape), update `CONTEXT.md` too — that file should stay accurate, not just aspirational
+- If it revealed an OpenEMR schema/API detail that contradicts something written in `CONTEXT.md` (table name, field name, response shape), update `CONTEXT.md` too — that file should stay accurate, not just aspirational
 
 ## Things not to do
 

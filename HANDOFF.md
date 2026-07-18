@@ -4,7 +4,7 @@ Point-in-time snapshot for a fresh Claude (chat or Claude Code) session picking 
 
 ## Snapshot Summary
 
-Environment is fully working end-to-end: Docker stack (OpenEMR + MariaDB), OAuth2 authentication (including the client dynamic-registration + DB-side enable step), and the C# API + DB test layers are all confirmed functional against a live instance. Current state: **11 of 15 API/DB tests passing.** All 4 remaining failures have a known, understood cause — none are unexplained.
+Environment is fully working end-to-end: Docker stack (OpenEMR + MariaDB), OAuth2 authentication (including the client dynamic-registration + DB-side enable step), and the C# API + DB test layers are all confirmed functional against a live instance. Current state: **13 of 15 API/DB tests passing.** The 2 remaining failures are both the FHIR-access issue — a single known, understood root cause, not two separate mysteries.
 
 The UI layer (Playwright/TypeScript) is scaffolded but has not yet been run against the live instance beyond one confirmed selector fix. It has not been debugged the way the API/DB layers have.
 
@@ -37,21 +37,20 @@ dotnet test OpenEmr.Tests.sln
 
 ## Current Test Status
 
-### Passing (11)
+### Passing (13)
 
-- All `OpenEmr.Db.Tests` — fixture seeding, referential integrity, transactional insert/rollback pattern
+- All `OpenEmr.Db.Tests` (5) — fixture seeding, referential integrity, transactional insert/rollback pattern
 - `Create_Patient_Returns_Created_With_New_Pid`, `Get_Patient_List_Returns_Seeded_Demo_Patients`, `Get_Patient_By_Pid_Returns_Matching_Record`, `Update_Patient_Persists_Changed_Fields`, `Create_Patient_Missing_Required_Field_Returns_BadRequest` (all Patient API tests except FHIR)
-- `Create_Appointment_Returns_Created_With_New_Eid` (Appointment API)
+- `Create_Appointment_Returns_Created_With_New_Eid`, `Get_Appointments_For_Patient_Returns_Only_That_Patients_Visits`, `Double_Booking_Same_Slot_Same_Provider_Is_Allowed_With_Distinct_Ids` (all Appointment API tests except FHIR)
 
-### Failing (4) — all root-caused, none are mysteries
+### Failing (2) — one root cause, not a mystery
 
-1. **`Fhir_Patient_Search_Returns_Valid_Bundle`** and **`Fhir_Appointment_Search_Returns_Valid_Bundle`** — both `401 Unauthorized`. REST scopes work; FHIR-specific scopes are needed but the correct scope string is unconfirmed. One attempt (`user/Patient.rs`) broke OAuth client _registration_ entirely, unrelated to the token request — reverted. This needs a clean investigation into OpenEMR's actual supported FHIR scope syntax for this version, ideally via the instance's own Swagger UI (`https://localhost:9300/swagger/`) rather than guessing at scope strings again. Low priority relative to the other three failures — REST coverage is the larger surface area.
+1. **`Fhir_Patient_Search_Returns_Valid_Bundle`** and **`Fhir_Appointment_Search_Returns_Valid_Bundle`** — now both `501 Not Implemented` with an empty body (confirmed via direct `curl` against `GET /apis/default/fhir/Patient` with a valid bearer token — this is a status-code change from the previously-documented `401 Unauthorized`, not a re-investigation of the same failure). A `501` from the app itself suggests the FHIR route genuinely isn't wired up in this environment, which is a different diagnosis than "wrong OAuth scope string" — worth a fresh look before assuming the old scope-string theory still applies. Ideally investigate via the instance's own Swagger UI (`https://localhost:9300/swagger/`) rather than guessing again. Still low priority relative to REST coverage; still explicitly deferred, not attempted this session.
 
-2. **`Get_Appointments_For_Patient_Returns_Only_That_Patients_Visits`** — throws `System.InvalidOperationException: requires an element of type 'Object', but the target element has type 'Array'` when iterating the `data` array from `GET /patient/{pid}/appointment` and calling `.GetProperty("pc_pid")` on each item. The list-level `data` array itself parses fine; something about the per-item shape doesn't match the assumption baked into the original (external-docs-based) design. Needs the raw body of a real response with at least one appointment in it — that hasn't been captured yet, since the assertion only logs the raw body on top-level failures, not on this specific parsing exception. Quickest fix: temporarily print the raw string directly (e.g. via a scratch console app or an ad-hoc test) rather than guessing at field names again.
+**Resolved this session** (previously 2 of the 4 known failures, now fixed in `AppointmentApiTests.cs`):
 
-3. **`Double_Booking_Same_Slot_Same_Provider_Returns_Conflict`** — the first appointment creation succeeds as expected (`200 OK`), but the second (identical slot/provider) _also_ returns `200 OK` with a real new `id`, not the expected `409 Conflict`. This may mean OpenEMR's REST API genuinely doesn't enforce this conflict at the API layer (only in the UI's own JS validation), in which case the test's expectation is wrong and needs to change, not the implementation. Needs a UI-side check (create the same double-booking through the actual OpenEMR calendar screen) to determine whether this is a real product behavior or a payload/field issue on the test's end.
-
-4. Two known-good-but-not-yet-fixed items were already resolved this session and shouldn't reappear: DOB field casing (fixed via explicit `JsonSerializerOptions`), and single-patient lookups using `uuid` instead of `pid` (fixed).
+- **Appointment list per-item shape** — root-caused via a raw `curl` GET against `/apis/default/api/patient/{pid}/appointment`: the response root **is the array itself** (`[{...}, {...}]`), not an object with a `data` property. The original test's `.GetProperty("data")` call on an array-typed root element was the exact source of the `InvalidOperationException`. Fixed by parsing the root as an array directly and asserting every item's `pid` matches the test patient, which is what the test's name always claimed to check but never actually did.
+- **Double-booking "conflict"** — confirmed via direct `curl` (two identical POSTs to the same patient/slot/provider) that OpenEMR's REST API returns `200 OK` with a new distinct `id` both times; there is no server-side conflict enforcement. This matches the UI-layer finding (soft `confirm()` warning, not a hard block — see UI Layer Status below). The test was renamed to `Double_Booking_Same_Slot_Same_Provider_Is_Allowed_With_Distinct_Ids` and now asserts the real, confirmed product behavior instead of an assumption that was never true.
 
 ## UI Layer Status
 
@@ -80,12 +79,11 @@ The authenticated-crawl support this section anticipated now exists and has been
 
 ## Immediate Next Steps (roughly ordered)
 
-1. Resolve or intentionally reclassify the two non-FHIR API failures (appointment list shape, double-booking expectation) — both are close to done, not open-ended investigations.
-2. Run the UI layer against the live instance for the first time and go through the same evidence-based debugging cycle the API layer already went through.
-3. Once treeLine's authenticated-crawl support is ready, run it against this Docker instance and use its output to expand `TEST-PLAN.md` systematically.
-4. Build the scheduled GitHub Actions workflows (daily/weekly) with failure alerting — CI currently only triggers on push/PR.
-5. Separately investigate FHIR scope configuration — low priority, isolated from the rest of the suite.
-6. Longer-term, once the above is solid: begin the deliberate "grey area" reliability-testing phase described in `CONTEXT.md` — this should not be started early.
+1. Root-cause the cancel-appointment UI bug — `CalendarPage.deleteCurrentEvent()` doesn't remove the row from `openemr_postcalendar_events`, see UI Layer Status above for the specific next debugging step.
+2. Build the scheduled GitHub Actions workflows (daily/weekly) with failure alerting — CI currently only triggers on push/PR.
+3. Investigate the FHIR `501 Not Implemented` — now a status-code change from the previously-documented `401`, worth a fresh look rather than resuming the old scope-string theory. Still low priority relative to REST coverage.
+4. Continue expanding `TEST-PLAN.md`'s open items resource-by-resource (Encounter, Practitioner, Facility, etc. on the API side; the still-open UI items — reschedule/drag-drop, clinical encounter, billing, RBAC).
+5. Longer-term, once the above is solid: begin the deliberate "grey area" reliability-testing phase described in `CONTEXT.md` — this should not be started early.
 
 ## Collaboration Notes
 
