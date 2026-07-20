@@ -15,7 +15,8 @@ Status legend: `[x]` scaffolded with a real test, `[ ]` planned, not yet written
 - [x] Encounter: create, list-by-patient, close/sign encounter
 - [x] Practitioner: list, get by id
 - [x] Facility: create, get by id, update, list, missing-required-field, invalid-uuid
-- [ ] Insurance: create, get by patient
+- [x] Insurance Company: list, create (confirmed 500 — broken in this OpenEMR version), update (same bug)
+- [x] Patient Insurance: create, get by id, list, update (confirmed destructive — nulls unset fields), missing-required-field, not-found
 - [ ] Allergy: create, list-by-patient, delete
 - [ ] Immunization: create, list-by-patient
 - [ ] Procedure/Prescription: create, list-by-patient
