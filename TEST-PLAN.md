@@ -14,7 +14,7 @@ Status legend: `[x]` scaffolded with a real test, `[ ]` planned, not yet written
 - [ ] Appointment: update/reschedule, cancel, recurring series
 - [x] Encounter: create, list-by-patient, close/sign encounter
 - [x] Practitioner: list, get by id
-- [ ] Facility: list, get by id
+- [x] Facility: create, get by id, update, list, missing-required-field, invalid-uuid
 - [ ] Insurance: create, get by patient
 - [ ] Allergy: create, list-by-patient, delete
 - [ ] Immunization: create, list-by-patient
