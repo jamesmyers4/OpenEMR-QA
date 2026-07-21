@@ -21,8 +21,8 @@ Status legend: `[x]` scaffolded with a real test, `[ ]` planned, not yet written
 - [x] Immunization: read/search-only (`rs`, no create endpoint exists — confirmed via 404 on POST), list filtered by `patient_id` works correctly, get by uuid, 404 on nonexistent uuid
 - [x] Procedure: read/search-only (`rs`, confirmed 404 on POST), list/get-by-uuid work for well-formed fixtures but the list route ignores any query-string filter entirely (no real list-by-patient is possible), and both routes 500 for any row whose `encounter_id`/`provider_id` doesn't resolve to a real row (confirmed bug, `ProcedureService`)
 - [x] Prescription: read/search-only (`rs`, confirmed 404 on POST), list works but also ignores any query-string filter (no real list-by-patient), and `GET /api/prescription/{uuid}` is unconditionally broken — always 500, valid uuid or not (confirmed bug, `PrescriptionService::getOne()`)
-- [ ] Document: upload, list-by-patient, download
-- [ ] Message/Patient portal message: create, list
+- [x] Document: upload, list-by-patient, download, missing-file, missing-path (confirmed the `path` category resolution and the missing-required-query-param cases are both real bugs — see `CONTEXT.md`), download-nonexistent, empty-category list, no update/delete route
+- [x] Message: create, missing-required-field, no read/list route (confirmed 404), update (confirmed it appends rather than replaces the body, and — a real bug — never scopes by pid so a mismatched patient id in the URL still updates another patient's note), delete (confirmed soft-delete via `deleted=1`, correctly scoped by pid+id, but — a real bug — reports the same `200` success whether or not any row actually matched, including for a nonexistent message id)
 
 ### FHIR R4 (`/apis/{site}/fhir`)
 - [x] Patient search bundle
