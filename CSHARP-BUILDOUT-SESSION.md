@@ -93,10 +93,10 @@ Each follows `PatientDbTests.cs`'s pattern: `[Collection("OpenEmr DB")]`, constr
 
 Doesn't have to be rigid, but if you want a concrete order across multiple Claude Code sessions:
 
-1. Facility (full API resource, clean warm-up)
-2. Insurance Company + Patient Insurance (two classes)
-3. Allergy
-4. `form_encounter` DB tests (parallel track, no dependency on 1-3)
+1. Facility (full API resource, clean warm-up) (DONE)
+2. Insurance Company + Patient Insurance (two classes) (DONE)
+3. Allergy (DONE)
+4. `form_encounter` DB tests (parallel track, no dependency on 1-3) (CURRENT)
 5. Immunization / Procedure / Prescription (the read-only trio — write the negative/rejection tests explicitly)
 6. Document
 7. Message (the no-read resource — same treatment as #5)

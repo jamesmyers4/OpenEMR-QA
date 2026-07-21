@@ -17,9 +17,10 @@ Status legend: `[x]` scaffolded with a real test, `[ ]` planned, not yet written
 - [x] Facility: create, get by id, update, list, missing-required-field, invalid-uuid
 - [x] Insurance Company: list, create (confirmed 500 — broken in this OpenEMR version), update (same bug)
 - [x] Patient Insurance: create, get by id, list, update (confirmed destructive — nulls unset fields), missing-required-field, not-found
-- [ ] Allergy: create, list-by-patient, delete
-- [ ] Immunization: create, list-by-patient
-- [ ] Procedure/Prescription: create, list-by-patient
+- [x] Allergy: create, missing-required-field, list-by-patient (confirmed the patient-nested list/get routes are broken — always return empty; real list-by-patient coverage uses the top-level route's `puuid` filter instead), delete
+- [x] Immunization: read/search-only (`rs`, no create endpoint exists — confirmed via 404 on POST), list filtered by `patient_id` works correctly, get by uuid, 404 on nonexistent uuid
+- [x] Procedure: read/search-only (`rs`, confirmed 404 on POST), list/get-by-uuid work for well-formed fixtures but the list route ignores any query-string filter entirely (no real list-by-patient is possible), and both routes 500 for any row whose `encounter_id`/`provider_id` doesn't resolve to a real row (confirmed bug, `ProcedureService`)
+- [x] Prescription: read/search-only (`rs`, confirmed 404 on POST), list works but also ignores any query-string filter (no real list-by-patient), and `GET /api/prescription/{uuid}` is unconditionally broken — always 500, valid uuid or not (confirmed bug, `PrescriptionService::getOne()`)
 - [ ] Document: upload, list-by-patient, download
 - [ ] Message/Patient portal message: create, list
 
