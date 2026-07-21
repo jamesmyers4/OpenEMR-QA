@@ -32,11 +32,11 @@ Status legend: `[x]` scaffolded with a real test, `[ ]` planned, not yet written
 - [ ] Bundle transaction POST (create multiple linked resources in one call)
 
 ### Cross-cutting API concerns
-- [ ] OAuth2: expired token rejected, invalid scope rejected, refresh token flow
-- [ ] Pagination on list endpoints
-- [ ] Rate limiting / throttling behavior if enabled
-- [ ] Malformed JSON body returns 400, not 500
-- [ ] RBAC: a limited-scope token cannot hit an out-of-scope endpoint
+- [x] OAuth2: no bearer token rejected, malformed bearer token rejected, refresh token flow (confirmed requires the `offline_access` scope at registration/token-request time — omitted by default in this project's main test scope) issues a new working access token. True token-**expiry** rejection is not covered: access tokens are 1-hour JWTs signed by the server, so simulating real expiry would require either waiting out the full TTL or forging a JWT with the server's private key — neither is practical for this suite, so this is a documented, deliberate gap rather than a silent one (same rationale as the FHIR 501 deferral)
+- [x] Pagination on list endpoints — confirmed `_offset`/`_limit` genuinely page through `GET /api/patient` (non-overlapping ids across pages), not just accepted-and-ignored
+- [x] Rate limiting / throttling — confirmed **not enabled** on this instance (no rate/throttle-related row in the `globals` table); no test written, per the "confirm first, don't build against an assumption" guidance
+- [x] Malformed JSON body returns 400, not 500 (confirmed on `POST /api/facility` with a truncated body — falls through to the normal missing-required-field validation path, not a crash)
+- [x] RBAC: a token registered and granted only `user/patient.read` can call `GET /api/patient` but gets `401` on `GET /api/facility`, confirmed via `_rest_config.php`'s `scope_check()` (`user/{resource}.{permission}` string compared against the token's granted scopes, hard `401` on a miss) rather than assumed
 
 ## Layer 2 — Database (C#/xUnit)
 
