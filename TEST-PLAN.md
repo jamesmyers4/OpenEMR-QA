@@ -48,7 +48,7 @@ Status legend: `[x]` scaffolded with a real test, `[ ]` planned, not yet written
 - [ ] `lists`: allergy/immunization code lists match what the UI dropdowns render
 - [x] Soft-delete: only a `deleted` flag exists in this schema (`documents`, `pnotes`, `forms`, `onsite_mail`, `ar_activity`, `ccda_table_mapping`) — there is no `date_deleted` column anywhere; confirmed a soft-deleted `documents` row is excluded by the exact predicate `DocumentService::getAllAtPath()` uses (`deleted = 0`)
 - [x] Audit/log table (`log`) gets a row on application-mediated patient creates (confirmed against real history); confirmed **zero DB triggers exist anywhere in this schema** — audit logging is entirely PHP-mediated (`EventAuditLogger::newEvent()`), so a direct SQL write bypassing the app leaves no audit trail at all (HIPAA-relevant gap, not a test artifact)
-- [ ] Referential integrity across insurance ↔ patient, billing ↔ encounter
+- [x] Referential integrity across insurance ↔ patient, billing ↔ encounter — confirmed **neither relationship has a DB-level FK constraint** (both tables are InnoDB, which supports FKs, but none are declared); a direct insert with a nonexistent `pid`/`encounter` is silently accepted by the schema and only catchable via an application-style orphan-detection query, not a DB-enforced guarantee
 
 ## Layer 3 — UI (Playwright/TypeScript)
 
