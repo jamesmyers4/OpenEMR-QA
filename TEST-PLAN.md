@@ -44,10 +44,10 @@ Status legend: `[x]` scaffolded with a real test, `[ ]` planned, not yet written
 - [x] `openemr_postcalendar_events`: no orphaned `pc_pid` references
 - [x] Transactional insert/verify/rollback pattern proven
 - [ ] `form_encounter`: every encounter row has a valid `pid` and `provider_id`
-- [ ] `users`: no duplicate usernames, disabled users can't authenticate (cross-check with API layer)
+- [x] `users`: no duplicate populated usernames (confirmed no DB-level unique constraint on `username` — duplicates are only prevented, if at all, at the application layer), disabled users excluded by the exact `active = 1` predicate `AuthUtils.php`'s login check uses (confirmed via source)
 - [ ] `lists`: allergy/immunization code lists match what the UI dropdowns render
-- [ ] Soft-delete columns (`deleted`, `date_deleted`) respected — deleted rows excluded from API responses
-- [ ] Audit/log table gets a row on create/update/delete of a patient record (HIPAA-relevant behavior worth calling out in interviews)
+- [x] Soft-delete: only a `deleted` flag exists in this schema (`documents`, `pnotes`, `forms`, `onsite_mail`, `ar_activity`, `ccda_table_mapping`) — there is no `date_deleted` column anywhere; confirmed a soft-deleted `documents` row is excluded by the exact predicate `DocumentService::getAllAtPath()` uses (`deleted = 0`)
+- [x] Audit/log table (`log`) gets a row on application-mediated patient creates (confirmed against real history); confirmed **zero DB triggers exist anywhere in this schema** — audit logging is entirely PHP-mediated (`EventAuditLogger::newEvent()`), so a direct SQL write bypassing the app leaves no audit trail at all (HIPAA-relevant gap, not a test artifact)
 - [ ] Referential integrity across insurance ↔ patient, billing ↔ encounter
 
 ## Layer 3 — UI (Playwright/TypeScript)
