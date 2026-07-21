@@ -32,7 +32,7 @@ services:
       OE_USER: admin
       OE_PASS: pass
       OPENEMR_SETTING_rest_api: 1
-      OPENEMR_SETTING_fhir_api: 1
+      OPENEMR_SETTING_rest_fhir_api: 1
       OPENEMR_SETTING_oauth_password_grant: 1
       DEMO_MODE: standard
       EASY_DEV_MODE: 1

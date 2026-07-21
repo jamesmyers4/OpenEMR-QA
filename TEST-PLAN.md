@@ -25,9 +25,9 @@ Status legend: `[x]` scaffolded with a real test, `[ ]` planned, not yet written
 - [x] Message: create, missing-required-field, no read/list route (confirmed 404), update (confirmed it appends rather than replaces the body, and — a real bug — never scopes by pid so a mismatched patient id in the URL still updates another patient's note), delete (confirmed soft-delete via `deleted=1`, correctly scoped by pid+id, but — a real bug — reports the same `200` success whether or not any row actually matched, including for a nonexistent message id)
 
 ### FHIR R4 (`/apis/{site}/fhir`)
-- [x] Patient search bundle
-- [x] Appointment search bundle
-- [ ] Encounter, Condition, AllergyIntolerance, MedicationRequest, Observation search + read
+- [x] Patient search bundle — genuinely passing now (see the resolved root cause below), not just the OAuth-scope workaround previously assumed
+- [x] Appointment search bundle — same fix, same result
+- [ ] Encounter, Condition, AllergyIntolerance, MedicationRequest, Observation search + read — now unblocked (see below); the reason these were never built wasn't a per-resource API limitation, it was the whole FHIR surface being off. Straightforward to add in a future session: each needs its own capitalized `user/{Resource}.read` scope added to `appsettings.test.json` (`user/Encounter.read`, `user/Condition.read`, `user/AllergyIntolerance.read`, `user/MedicationRequest.read`, `user/Observation.read`, confirmed valid identifiers via `ScopeRepository.php`), then the same bundle-shape assertion pattern as Patient/Appointment
 - [ ] $everything operation on Patient (full record export — good stress test of the API layer)
 - [ ] Bundle transaction POST (create multiple linked resources in one call)
 
