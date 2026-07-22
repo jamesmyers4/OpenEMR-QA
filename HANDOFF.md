@@ -4,7 +4,9 @@ Point-in-time snapshot for a fresh Claude (chat or Claude Code) session picking 
 
 ## Snapshot Summary
 
-Environment is fully working end-to-end: Docker stack (OpenEMR + MariaDB), OAuth2 authentication (including the client dynamic-registration + DB-side enable step), and the C# API + DB test layers are all confirmed functional against a live instance. Current state: **19 of 21 API/DB tests passing.** The 2 remaining failures are both the FHIR-access issue — a single known, understood root cause, not two separate mysteries.
+Updated 2026-07-21 (Session 1 of `REVIEW-PASS-AND-FHIR-EXPANSION-SESSION.md`). Environment is fully working end-to-end: Docker stack (OpenEMR + MariaDB), OAuth2 authentication (including the client dynamic-registration + DB-side enable step), FHIR access, and the C# API + DB test layers are all confirmed functional against a **genuinely fresh** instance, not just a long-lived one. Current state: **99 of 99 API/DB tests passing** (75 `OpenEmr.Api.Tests`, 24 `OpenEmr.Db.Tests`), re-verified this session against a container rebuilt from `docker compose down -v && up -d` — see `CONTEXT.md`'s Known Constraints for the fresh-container FHIR confirmation and two DB-test findings (one fixed, one open) discovered along the way.
+
+One real, unresolved gap found this session: `AuditLogDbTests.Application_Mediated_Patient_Inserts_Are_Represented_In_The_Audit_Log` races against `OpenEmr.Api.Tests` (the two test projects run as concurrent processes under `dotnet test OpenEmr.Tests.sln`) and can fail on the very first run against a zero-history database — passes reliably afterward. Not yet fixed; see `CONTEXT.md` and `REVIEW-PASS-AND-FHIR-EXPANSION-SESSION.md` Part A5 for the two candidate fixes.
 
 The UI layer (Playwright/TypeScript) is scaffolded but has not yet been run against the live instance beyond one confirmed selector fix. It has not been debugged the way the API/DB layers have.
 

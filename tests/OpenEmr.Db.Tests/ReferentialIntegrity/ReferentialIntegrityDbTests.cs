@@ -88,8 +88,12 @@ public class ReferentialIntegrityDbTests
     public async Task Direct_Insert_Billing_Row_For_Real_Encounter_Passes_The_Orphan_Check_Then_Rolled_Back()
     {
         await using var transaction = await _fixture.Connection.BeginTransactionAsync();
-        var realEncounter = await _fixture.Connection.QuerySingleAsync<(long Pid, long Encounter)>(
-            "SELECT pid AS Pid, encounter AS Encounter FROM form_encounter ORDER BY id LIMIT 1", transaction: transaction);
+        var realPid = await _fixture.Connection.ExecuteScalarAsync<int>("SELECT pid FROM patient_data ORDER BY pid LIMIT 1", transaction: transaction);
+        const long encounterId = 555555555;
+        await _fixture.Connection.ExecuteAsync(
+            "INSERT INTO form_encounter (date, reason, facility, pid, encounter, provider_id) VALUES (NOW(), 'Referential Integrity Fixture', 'Fixture Facility', @Pid, @Encounter, 1)",
+            new { Pid = realPid, Encounter = encounterId }, transaction);
+        var realEncounter = (Pid: (long)realPid, Encounter: encounterId);
         var insertSql = "INSERT INTO billing (pid, encounter, provider_id) VALUES (@Pid, @Encounter, 1)";
         await _fixture.Connection.ExecuteAsync(insertSql, new { realEncounter.Pid, realEncounter.Encounter }, transaction);
         var orphanCheckSql = @"
