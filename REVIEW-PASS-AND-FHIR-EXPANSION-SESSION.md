@@ -15,7 +15,9 @@ This file's scope is too large for one sitting, so it's split into 4 sessions, e
 - **Session 3 — FHIR expansion (Part B).** Scope: Encounter, AllergyIntolerance, Condition, MedicationRequest, Observation search+read, in the order Part B recommends.
   **Status: done.** All 5 scopes added to `appsettings.test.json`. Encounter, AllergyIntolerance, Condition, and MedicationRequest all go further than a bare bundle check — each seeds real fixture data for a specific patient and asserts a `patient`-filtered search actually returns it (confirmed live that a bare unfiltered search can misleadingly return a valid-but-irrelevant non-empty bundle, which the doc's own Part B flagged as worth checking). Observation is the one exception: its Vitals category needs a `forms` table linkage beyond `form_vitals` that produced an unexplained `500` when attempted live, so it's currently just the same bare bundle-shape check as Patient/Appointment — a real, open follow-up, not silently dropped. Full solution: 115/115 (83 API + 32 DB). Full detail in `CONTEXT.md`'s Known Constraints and Part B below.
 - **Session 4 — Review & cleanup pass (Part A, minus A5).** Scope: A1 (response-shape reference doc), A2 (FINDINGS.md), A3 (fixture-cleanup audit), A4 (OAuth scope audit).
-  **Status: not started.** Start here: read Part A (A1–A4; A5 is already done, see above). Optional, not required: two open items from prior sessions that don't block this one but could be picked up if there's spare time — the `AuditLogDbTests` race described in Part A5, and the Observation/Vitals `forms`-linkage 500 described in Part B and `CONTEXT.md`. Neither is this session's assigned scope.
+  **Status: done.** All four closed. New `API-RESPONSE-SHAPES.md` (A1) and `FINDINGS.md` (A2, 13 defect write-ups ranked by severity) pull confirmed material out of `CONTEXT.md`'s Known Constraints into dedicated, portfolio-ready documents without re-verifying anything. A3's audit found the fixture-cleanup gap is real but project-wide (every API test's patient creation leaks, not just the three read-only resources named in the original ask) and already has an accepted mitigation (`TEST-PLAN.md`'s existing test-data-lifecycle gap item, now updated with the audit's findings) — no code changes made, since the one existing cleanup (`ProcedureApiTests`'s orphaned-row `finally` block) turned out to be a correctness requirement, not a hygiene precedent to extend. A4's scope-string audit found no duplicates and nothing unused; the lowercase-REST/capitalized-FHIR naming split is now a standing note in `CONTEXT.md`'s Conventions section. No test code changed this session; full suite reconfirmed at 115/115.
+
+This closes out `REVIEW-PASS-AND-FHIR-EXPANSION-SESSION.md` — all 4 sessions done. See `CONTEXT.md`, `TEST-PLAN.md`, `API-RESPONSE-SHAPES.md`, and `FINDINGS.md` for where the material actually lives now.
 
 ## 0. Two gaps from the original plan, owned up front — CLOSED (Session 2)
 
@@ -27,17 +29,17 @@ Before the review pass proper: two items from `CSHARP-BUILDOUT-SESSION.md`'s Tra
 
 Full source-level evidence for all three lives in `CONTEXT.md`'s Known Constraints now. Full solution: 110/110 (78 `OpenEmr.Api.Tests`, 32 `OpenEmr.Db.Tests`).
 
-## Part A — Review & improve pass
+## Part A — Review & improve pass — DONE (Session 4, except A5 which finished in Session 1)
 
-The last 11 sessions produced a genuinely large body of confirmed findings — real bugs, doc/reality mismatches, and hard-won API behavior details, all logged in `CONTEXT.md`'s Known Constraints section (now ~30 entries deep). None of that needs to be redone. What's worth doing now is organizing it, and checking a few things that were never explicitly verified along the way.
+The last 11 sessions produced a genuinely large body of confirmed findings — real bugs, doc/reality mismatches, and hard-won API behavior details, all logged in `CONTEXT.md`'s Known Constraints section (now ~50 entries deep). None of that needs to be redone. What's worth doing now is organizing it, and checking a few things that were never explicitly verified along the way.
 
-### A1. Consolidate a response-shape quick-reference
+### A1. Consolidate a response-shape quick-reference — DONE
 
-Across the 11 sessions, nearly every resource turned out to have its own answer to basic questions like "does create return 200 or 201," "does list wrap in `data` or come back as a bare array/object," "does a bad id return 400 or 404." Right now that's only discoverable by reading through all of Known Constraints. Worth adding a single reference table — either near the top of `CONTEXT.md` or as its own `API-RESPONSE-SHAPES.md` — with one row per resource and columns for: create status code, list envelope shape, single-record not-found behavior, and a one-line gotcha. This doesn't require re-verifying anything, just pulling together what's already been confirmed (Patient, Appointment, Encounter, Practitioner, Facility, Insurance Company, Patient Insurance, Allergy, Immunization, Procedure, Prescription, Document, Message all already have a confirmed answer sitting in `CONTEXT.md`).
+Built as its own `API-RESPONSE-SHAPES.md` (not folded into `CONTEXT.md`, per the option this section originally offered) — one table for the 13 Legacy REST resources (create status, list envelope, not-found behavior, one-line gotcha) plus a second table for the FHIR resources, plus a short "what no pattern means here" closing section making explicit that every column varies at least once, so a 14th resource can't safely assume a sibling's shape. Pulled entirely from material already confirmed in `CONTEXT.md` — nothing re-verified.
 
-### A2. Pull the real bugs into their own findings document
+### A2. Pull the real bugs into their own findings document — DONE
 
-`CONTEXT.md`'s Known Constraints mixes routine "here's how this endpoint actually behaves" notes together with genuinely serious, source-confirmed defects. The following deserve to be separated out into a standalone `FINDINGS.md`, written like a real defect report (severity, repro, root cause, evidence) rather than left to compete for attention with everything else — this is strong, concrete portfolio material and it's currently buried:
+Built as `FINDINGS.md` — 13 entries, ranked by severity (Critical → Low, plus one Resolved), each with Severity/Status/Component/Summary/Repro/Root cause/Impact/Automated coverage. The following were pulled out of `CONTEXT.md`'s Known Constraints, where they were competing for attention with routine behavior notes:
 
 - **Message `PUT` never filters by `pid`** — a token with access to one patient can silently rewrite another patient's note. Real cross-tenant authorization bug, the most serious finding in the whole set.
 - **Message `PUT`/`DELETE` report `200` success on zero rows matched**, including for a nonexistent message id — silent-failure reporting, the inverse problem from the one above.
@@ -53,13 +55,15 @@ Across the 11 sessions, nearly every resource turned out to have its own answer 
 - **`billing.encounter` (`int(11)`) can't actually reference `form_encounter.encounter` (`bigint(20)`) values this project's own fixtures generate** — a latent schema mismatch.
 - **FHIR was silently disabled by a one-word env var typo** (`fhir_api` vs. the real `rest_fhir_api`) since the container was first created, stacked with a second, independent case-sensitive-scope bug underneath it — worth including even though it's resolved now, since "found and fixed a masked root cause with two independent layers" is a strong story on its own.
 
-### A3. Fixture-seeding cleanup audit
+Two findings not on the original list also made it in, since they were confirmed rather than theorized during Sessions 1–3: the `AuditLogDbTests` cross-project race (Part A5) and the Observation/Vitals `forms`-linkage gap (Part B) were judged not serious/certain enough yet for a defect write-up — both are still open investigations, tracked in `CONTEXT.md` instead, not `FINDINGS.md`.
 
-Immunization, Procedure, and Prescription seed their own fixture rows via direct `MySqlConnector` inserts from inside `OpenEmr.Api.Tests` (documented, deliberate, since none of the three has a working create endpoint). The Procedure session mentioned cleaning up its intentionally-broken fixture row in a `finally` block. Worth a quick pass confirming that same cleanup discipline is applied everywhere a direct insert happens across these three classes (and the `ReferentialIntegrityDbTests` insert/rollback pairs) — the goal is that repeated `dotnet test` runs don't quietly accumulate junk rows, which is the same concern `TEST-PLAN.md` already flags for the UI layer's test-data lifecycle.
+### A3. Fixture-seeding cleanup audit — DONE, no code changes
 
-### A4. OAuth scope string audit
+Confirmed: only `ProcedureApiTests`'s intentionally-orphaned row gets cleaned up, and it turns out that's because leaving it behind would break other Procedure tests (a correctness requirement), not a general hygiene practice being applied inconsistently. Every other direct-SQL fixture insert in Immunization/Procedure/Prescription leaks permanently, and so does every API test class's patient creation project-wide — this isn't specific to the three read-only resources named in the original ask. `TEST-PLAN.md` already has an accepted mitigation for exactly this (a full `docker compose down -v && up` reset, not per-test cleanup) in its "Test data lifecycle" gap item, now updated with this audit's findings rather than treated as a new problem. `ReferentialIntegrityDbTests` and the new `FormEncounterDbTests` are the only fixture-seeding code in the suite that already leaves zero footprint, by construction (rolled-back transactions).
 
-`appsettings.test.json`'s `Scope` string has grown by small increments across nearly every session and is now a long single line covering both legacy REST and FHIR-style scopes. Worth a pass to confirm nothing's duplicated or unused, and consider whether it's worth a comment or a short section in `CONTEXT.md` explaining the naming split (lowercase `user/resource.read` for REST, capitalized `user/Resource.read` for FHIR) so a future session doesn't have to re-derive that distinction from scratch. Low priority, but cheap to do while everything's fresh.
+### A4. OAuth scope string audit — DONE, no changes needed
+
+Confirmed: `appsettings.test.json`'s `Scope` string has no duplicates and nothing unused — every one of the 30 space-delimited entries traces to a real test class. Added a short standing note to `CONTEXT.md`'s Conventions section explaining the lowercase-REST/capitalized-FHIR naming split, so a future session doesn't have to re-derive it from the FHIR investigation buried in Known Constraints.
 
 ### A5. Verify the FHIR fix actually survives a fresh container — CONFIRMED, resolved this session
 

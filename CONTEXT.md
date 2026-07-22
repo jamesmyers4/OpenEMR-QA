@@ -1,6 +1,6 @@
 # CONTEXT.md
 
-Permanent reference for this project — what it is, why it exists, and the reasoning behind its major decisions. This document should stay accurate but doesn't need to change week to week. For current build status and active work, see `HANDOFF.md`. For the coverage checklist, see `TEST-PLAN.md`.
+Permanent reference for this project — what it is, why it exists, and the reasoning behind its major decisions. This document should stay accurate but doesn't need to change week to week. For current build status and active work, see `HANDOFF.md`. For the coverage checklist, see `TEST-PLAN.md`. For a per-resource "what does this endpoint actually return" quick-reference, see `API-RESPONSE-SHAPES.md`. For the standalone write-ups of the most serious confirmed defects, see `FINDINGS.md`.
 
 ## Purpose & Vision
 
@@ -54,6 +54,7 @@ The three test layers are intentionally decoupled — no shared fixtures or test
 - One blank line between function/method definitions, no blank lines inside a function body
 - Every HTTP assertion in the API layer captures the raw response body and passes it into the FluentAssertions `.Because()` argument (`"response body was: {0}", raw`) — this was adopted after repeated cases where a bare status-code mismatch gave no way to diagnose the real cause without a separate manual `curl` reproduction. New API tests should follow this pattern by default.
 - JSON payloads sent from the API layer explicitly pass a `JsonSerializerOptions` with `PropertyNamingPolicy = null` (see Decision Log — property casing was silently altered by .NET defaults in a way that caused real, hard-to-diagnose failures)
+- **OAuth scope naming split, confirmed by an explicit audit (no duplicates, nothing unused, every entry traceable to a real test class):** `appsettings.test.json`'s `Scope` string mixes two independently-grantable naming conventions on the same server — lowercase `user/{resource}.{read|write}` for legacy REST (e.g. `user/patient.read`), and capitalized `user/{Resource}.read` for FHIR (e.g. `user/Patient.read`), confirmed distinct via `ScopeRepository.php`. A resource needs both if it's covered by both a REST test class and a FHIR search test (Patient, Appointment). Don't assume one casing implies the other is also granted — add the specific one the new test actually needs.
 
 ## Known Constraints and Risks
 
