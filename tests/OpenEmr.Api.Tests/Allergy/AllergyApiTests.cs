@@ -76,6 +76,22 @@ public class AllergyApiTests
         verify.StatusCode.Should().Be(HttpStatusCode.NotFound, "response body was: {0}", verifyRaw);
     }
 
+    [Fact]
+    public async Task Fhir_AllergyIntolerance_Search_Filtered_By_Patient_Returns_The_Created_Allergy()
+    {
+        var puuid = await CreateTestPatientAsync("Chien-Shiung", "Wu");
+        await CreateAndParseTestAllergyAsync(puuid, "Codeine");
+        var response = await _fixture.Client.GetAsync(OpenEmrEndpoints.Fhir(_fixture.Options.SiteId, $"AllergyIntolerance?patient={puuid}"));
+        var raw = await response.Content.ReadAsStringAsync();
+        response.StatusCode.Should().Be(HttpStatusCode.OK, "response body was: {0}", raw);
+        var body = JsonDocument.Parse(raw).RootElement;
+        body.GetProperty("resourceType").GetString().Should().Be("Bundle", "response body was: {0}", raw);
+        body.GetProperty("total").GetInt32().Should().BeGreaterThan(0, "a bare, unfiltered FHIR search can return a technically-valid but misleadingly empty bundle for a patient-scoped resource - filtering by the real patient uuid and asserting a real entry proves the search genuinely works, response body was: {0}", raw);
+        body.GetProperty("entry").EnumerateArray().Should().Contain(
+            e => e.GetProperty("resource").GetProperty("patient").GetProperty("reference").GetString() == $"Patient/{puuid}",
+            "response body was: {0}", raw);
+    }
+
     private async Task<string> CreateTestPatientAsync(string first, string last)
     {
         var payload = new { fname = first, lname = $"{last}{DateTime.UtcNow.Ticks}", DOB = "1985-05-05", sex = "Female" };
