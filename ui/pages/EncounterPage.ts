@@ -36,4 +36,39 @@ export class EncounterPage {
     await this.reasonInput()?.fill(reason)
     await this.saveButton()?.click()
   }
+
+  formsFrame(): Frame | null {
+    return this.page.frame({ url: /encounter\/forms\.php/ })
+  }
+
+  soapFormFrame(): Frame | null {
+    return this.page.frame({ url: /formname=soap/ })
+  }
+
+  async openSoapForm(): Promise<void> {
+    const frame = this.formsFrame()
+    await frame?.getByText('Clinical', { exact: true }).click()
+    await this.page.waitForTimeout(300)
+    await frame?.getByText('SOAP', { exact: true }).click()
+    await this.page.waitForTimeout(1000)
+  }
+
+  async fillAndSubmitSoapNote(subjective: string, objective: string, assessment: string, plan: string): Promise<void> {
+    const frame = this.soapFormFrame()
+    await frame?.locator('textarea[name="subjective"]').fill(subjective)
+    await frame?.locator('textarea[name="objective"]').fill(objective)
+    await frame?.locator('textarea[name="assessment"]').fill(assessment)
+    await frame?.locator('textarea[name="plan"]').fill(plan)
+    await frame?.locator('button[type="submit"]').click()
+    await this.page.waitForTimeout(1500)
+  }
+
+  async eSignLatestForm(password: string): Promise<void> {
+    const frame = this.formsFrame()
+    await frame?.getByText('eSign', { exact: true }).last().click()
+    await this.page.waitForTimeout(800)
+    await frame?.locator('#password').fill(password)
+    await frame?.locator('#esign-sign-button-form').click()
+    await this.page.waitForTimeout(1500)
+  }
 }
