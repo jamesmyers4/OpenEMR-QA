@@ -1,0 +1,154 @@
+name: Run OpenEMR Test Suite
+
+on:
+  workflow_call:
+    inputs:
+      scope:
+        description: "'full' runs API+DB+all UI specs on chromium and firefox; 'smoke' runs API+DB plus auth.spec.ts on chromium only"
+        required: true
+        type: string
+      notify_on_failure:
+        description: "If true, open/update a tracking GitHub Issue on failure and auto-close it on the next successful run"
+        required: false
+        type: boolean
+        default: false
+      issue_label:
+        description: "Label used to find/create the tracking issue for this workflow's failures"
+        required: false
+        type: string
+        default: ci-failure
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Start OpenEMR stack
+        run: docker compose -f docker/docker-compose.yml up -d
+
+      - name: Wait for OpenEMR to be healthy
+        run: |
+          for i in $(seq 1 40); do
+            status=$(docker inspect --format='{{.State.Health.Status}}' $(docker compose -f docker/docker-compose.yml ps -q openemr) 2>/dev/null || echo starting)
+            if [ "$status" = "healthy" ]; then echo "OpenEMR is healthy"; exit 0; fi
+            echo "Waiting for OpenEMR... ($status)"
+            sleep 15
+          done
+          echo "OpenEMR never became healthy" && exit 1
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Restore and run API + DB tests
+        working-directory: tests
+        run: |
+          dotnet restore OpenEmr.Tests.sln
+          dotnet test OpenEmr.Tests.sln --logger "trx;LogFileName=results.trx" --results-directory ./TestResults
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install UI test dependencies
+        working-directory: ui
+        run: |
+          npm ci
+          npx playwright install --with-deps ${{ inputs.scope == 'smoke' && 'chromium' || 'chromium firefox' }}
+
+      - name: Run UI tests (full regression)
+        if: inputs.scope != 'smoke'
+        working-directory: ui
+        run: npx playwright test
+
+      - name: Run UI tests (smoke)
+        if: inputs.scope == 'smoke'
+        working-directory: ui
+        run: npx playwright test auth.spec.ts --project=chromium
+
+      - name: Upload test artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: |
+            tests/TestResults
+            ui/playwright-report
+          retention-days: 14
+          if-no-files-found: ignore
+
+      - name: Tear down stack
+        if: always()
+        run: docker compose -f docker/docker-compose.yml down -v
+
+  notify:
+    needs: test
+    if: always() && inputs.notify_on_failure
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    steps:
+      - name: Open or update tracking issue on failure
+        if: needs.test.result == 'failure'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const title = `${{ github.workflow }} is failing`;
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            const label = '${{ inputs.issue_label }}';
+            const { data: issues } = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              labels: label
+            });
+            const existing = issues.find(i => i.title === title);
+            if (existing) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: existing.number,
+                body: `Failed again: ${runUrl}`
+              });
+            } else {
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title,
+                body: `The scheduled run failed.\n\nRun: ${runUrl}\n\nThis issue stays open and accumulates a comment per failing run until a run succeeds, at which point it is closed automatically.`,
+                labels: [label]
+              });
+            }
+
+      - name: Close tracking issue on success
+        if: needs.test.result == 'success'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const title = `${{ github.workflow }} is failing`;
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            const label = '${{ inputs.issue_label }}';
+            const { data: issues } = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              labels: label
+            });
+            const existing = issues.find(i => i.title === title);
+            if (existing) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: existing.number,
+                body: `Resolved by a passing run: ${runUrl}`
+              });
+              await github.rest.issues.update({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: existing.number,
+                state: 'closed'
+              });
+            }

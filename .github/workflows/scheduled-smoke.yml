@@ -1,0 +1,16 @@
+name: Scheduled Daily Smoke
+
+on:
+  schedule:
+    - cron: '13 6 * * *'
+  workflow_dispatch:
+
+jobs:
+  test:
+    uses: ./.github/workflows/run-suite.yml
+    permissions:
+      issues: write
+    with:
+      scope: smoke
+      notify_on_failure: true
+      issue_label: ci-failure-smoke

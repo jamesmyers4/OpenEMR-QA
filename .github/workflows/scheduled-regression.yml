@@ -1,0 +1,16 @@
+name: Scheduled Weekly Full Regression
+
+on:
+  schedule:
+    - cron: '37 7 * * 0'
+  workflow_dispatch:
+
+jobs:
+  test:
+    uses: ./.github/workflows/run-suite.yml
+    permissions:
+      issues: write
+    with:
+      scope: full
+      notify_on_failure: true
+      issue_label: ci-failure-regression
