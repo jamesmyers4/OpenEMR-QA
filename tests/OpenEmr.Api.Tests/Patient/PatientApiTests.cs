@@ -80,6 +80,36 @@ public class PatientApiTests
     }
 
     [Fact]
+    public async Task Fhir_Patient_Everything_Operation_Returns_NotFound_Unsupported_By_This_Version()
+    {
+        var (_, uuid, _) = await CreateTestPatientAsync("Rosalind", "Franklin");
+        var response = await _fixture.Client.GetAsync(OpenEmrEndpoints.Fhir(_fixture.Options.SiteId, $"Patient/{uuid}/$everything"));
+        var raw = await response.Content.ReadAsStringAsync();
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound, "no $everything route is registered anywhere in _rest_routes.inc.php for this OpenEMR version (confirmed by reading source before writing this assertion, unlike the neighboring $export bulk-export operation which is registered), response body was: {0}", raw);
+    }
+
+    [Fact]
+    public async Task Fhir_Bundle_Transaction_Post_Returns_NotFound_Unsupported_By_This_Version()
+    {
+        var transactionBundle = new
+        {
+            resourceType = "Bundle",
+            type = "transaction",
+            entry = new object[]
+            {
+                new
+                {
+                    resource = new { resourceType = "Patient", name = new[] { new { family = "BundleTransaction", given = new[] { "Ada" } } } },
+                    request = new { method = "POST", url = "Patient" }
+                }
+            }
+        };
+        var response = await _fixture.Client.PostAsJsonAsync(OpenEmrEndpoints.Fhir(_fixture.Options.SiteId, string.Empty), transactionBundle, ExactCasing);
+        var raw = await response.Content.ReadAsStringAsync();
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound, "no bare POST /fhir Bundle-transaction route exists in _rest_routes.inc.php for this OpenEMR version - the only registered POSTs are per-resource (e.g. POST /fhir/Patient), response body was: {0}", raw);
+    }
+
+    [Fact]
     public async Task Create_Patient_Missing_Required_Field_Returns_BadRequest()
     {
         var payload = new { fname = "NoLastName" };
