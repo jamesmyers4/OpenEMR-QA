@@ -28,4 +28,9 @@ export class LoginPage {
     const askAgainLater = this.page.getByRole('button', { name: 'Ask again later' })
     await askAgainLater.click({ timeout: 3000 }).catch(() => undefined)
   }
+
+  async logout(): Promise<void> {
+    await this.page.locator('#username[data-toggle="dropdown"]').click()
+    await this.page.locator('#userdropdown').getByText('Logout').click()
+  }
 }
