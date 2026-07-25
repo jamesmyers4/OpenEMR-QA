@@ -6,11 +6,11 @@ using OpenEmr.Db.Tests.Fixtures;
 namespace OpenEmr.Db.Tests.AuditLog;
 
 [Collection("OpenEmr DB")]
-public class AuditLogDbTests
+public class AuditLogDbTests : IClassFixture<AuditLogSeedFixture>
 {
     private readonly DbConnectionFixture _fixture;
 
-    public AuditLogDbTests(DbConnectionFixture fixture)
+    public AuditLogDbTests(DbConnectionFixture fixture, AuditLogSeedFixture seedFixture)
     {
         _fixture = fixture;
     }
@@ -36,7 +36,7 @@ public class AuditLogDbTests
     {
         var sql = "SELECT COUNT(*) FROM log WHERE event = 'patient-record-insert' AND category = 'Patient Demographics'";
         var count = await _fixture.Connection.ExecuteScalarAsync<int>(sql);
-        count.Should().BeGreaterThan(0, "every patient created through the real application (API/UI) writes a corresponding row here, confirmed against this instance's existing log history");
+        count.Should().BeGreaterThan(0, "every patient created through the real application (API/UI) writes a corresponding row here; AuditLogSeedFixture creates one such patient itself via a real OAuth2-authenticated API call so this assertion never depends on OpenEmr.Api.Tests having already run");
     }
 
     [Fact]
