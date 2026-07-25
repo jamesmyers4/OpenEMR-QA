@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-Instructions for Claude Code when working in this repo. Read `CONTEXT.md` first for the why; read `TEST-PLAN.md` for what's currently built vs. still open — that file is the source of truth for what to work on next.
+Instructions for Claude Code when working in this repo. Read `CONTEXT.md` first for the why; read `TEST-PLAN.md` for what's currently built vs. still open — that file is the source of truth for what to work on next. `HANDOFF.md` has the current environment-setup/next-steps narrative, `FINDINGS.md` has standalone write-ups of the most serious confirmed defects, and `API-RESPONSE-SHAPES.md` is a per-resource quick reference for response shapes.
 
 ## Before making changes
 
@@ -16,6 +16,8 @@ cd ui && npm install && npx playwright install && npx playwright test
 ```
 
 `npx playwright codegen https://localhost:9300` against the running container is the fastest way to confirm real selectors before writing a new UI spec.
+
+On a genuinely fresh volume, wait for both `mariadb` and `openemr` to report `healthy` in `docker compose ps` before running anything — first boot can take several minutes and `openemr` can show `unhealthy` for a while first, which is normal, not a failure. See `HANDOFF.md` for the one-time first-login browser steps (product registration prompt, confirming REST/FHIR API connectors are enabled) required on a fresh volume before the test suites will pass.
 
 ## Code style — follow exactly, do not default to your usual style
 
@@ -34,11 +36,11 @@ cd ui && npm install && npx playwright install && npx playwright test
 
 - Follows the naming and fixture conventions above
 - Actually run once (`dotnet test` filtered to the class, or `playwright test <file>`) — don't hand back a test that's only been read, not executed
-- Corresponding checkbox in `docs/TEST-PLAN.md` flipped from `[ ]` to `[x]`
+- Corresponding checkbox in `TEST-PLAN.md` flipped from `[ ]` to `[x]`
 - If it revealed an OpenEMR schema/API detail that contradicts something written in `CONTEXT.md` (table name, field name, response shape), update `CONTEXT.md` too — that file should stay accurate, not just aspirational
 
 ## Things not to do
 
-- Don't add cross-project dependencies between `OpenEmr.Api.Tests` and `OpenEmr.Db.Tests` — see the decoupling rationale in `docs/CONTEXT.md`.
-- Don't add code coverage tooling (coverlet, etc.) as a proxy for "done" — OpenEMR is the system under test, not this repo's own code. Coverage is tracked as scenario coverage in `docs/TEST-PLAN.md`, not line coverage.
-- Don't silently change the pinned OpenEMR image version or `OPENEMR_SETTING_*` env vars in `docker/docker-compose.yml` without noting it in `docs/CONTEXT.md`'s known-constraints section — that surface has changed between OpenEMR releases before.
+- Don't add cross-project dependencies between `OpenEmr.Api.Tests` and `OpenEmr.Db.Tests` — see the decoupling rationale in `CONTEXT.md`.
+- Don't add code coverage tooling (coverlet, etc.) as a proxy for "done" — OpenEMR is the system under test, not this repo's own code. Coverage is tracked as scenario coverage in `TEST-PLAN.md`, not line coverage.
+- Don't silently change the pinned OpenEMR image version or `OPENEMR_SETTING_*` env vars in `docker/docker-compose.yml` without noting it in `CONTEXT.md`'s known-constraints section — that surface has changed between OpenEMR releases before.
