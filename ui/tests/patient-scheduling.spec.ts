@@ -80,7 +80,7 @@ test.describe('Patient scheduling', () => {
     await calendar.save()
     await expect(calendar.content().getByText(patient.lastName)).toBeVisible()
 
-    await calendar.openExistingAppointment('11:00')
+    await calendar.openExistingAppointment(patient.lastName)
     await calendar.deleteCurrentEvent()
     await expect(calendar.content().getByText(patient.lastName)).toHaveCount(0)
   })

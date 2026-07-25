@@ -248,3 +248,27 @@ Standalone write-ups for the most serious, source-confirmed defects found while 
 **Impact:** All FHIR coverage was blocked for the life of the project until both layers were found and fixed; now confirmed to survive a genuinely fresh container (`docker compose down -v && up`), not just the already-patched instance.
 
 **Automated coverage:** `Fhir_Patient_Search_Returns_Valid_Bundle`, `Fhir_Appointment_Search_Returns_Valid_Bundle`, and the 5 newer FHIR resource tests added across `EncounterApiTests.cs`, `AllergyApiTests.cs`, `ConditionApiTests.cs`, `MedicationRequestApiTests.cs`, `ObservationApiTests.cs`.
+
+---
+
+## 14. Calendar day-view single-click-to-edit throws a JS error for "No Show"-category appointments (resolved on the test side; real app bug remains)
+
+**Severity:** Medium
+**Status:** Open in OpenEMR itself; the corresponding UI test is fixed
+**Component:** `event_time_click()`/`EditEvent()` (`interface/main/calendar/modules/PostCalendar/pntemplates/default/views/day/ajax_template.html` and `header.html`)
+
+**Summary:** Single-clicking the "Click to edit" time link on a day-view appointment whose category type renders with the `event_noshow` CSS class (as opposed to `event_appointment`) throws an uncaught `TypeError: Cannot read properties of undefined (reading 'id')` in the browser and never opens the edit dialog at all. This is the actual root cause of what was previously tracked as "canceling an appointment does not remove it from the day view" — the delete button was never reachable, not broken itself.
+
+**Repro (live, confirmed via a raw Playwright script, not just the test suite):**
+1. Book any appointment without changing the default Category dropdown (which defaults to category id `1`, "No Show", on this instance's seed data).
+2. On the day view, single-click the appointment's `11:00`-style time link.
+3. A page-level `pageerror` fires (`Cannot read properties of undefined (reading 'id')`); `page.frame({ url: /add_edit_event\.php/ })` never resolves — no dialog opens.
+4. The same appointment opens fine via **double-click** anywhere on its day-view block.
+
+**Root cause:** `event_time_click(elem)` calls `EditEvent($(elem).parents("div.event_appointment").get(0))`. That jQuery `.parents()` selector is hardcoded to the `event_appointment` class only. For a "No Show"-categorized event, the day view instead wraps the link in `<div class="event_noshow event">` — no ancestor matches `div.event_appointment`, `.get(0)` returns `undefined`, and `EditEvent(undefined)` immediately dereferences `eObj.id`, throwing before `oldEvt()`/`dlgopen()` is ever reached. The separate `.dblclick()` handler is bound directly to `div.event` (matching both `event_appointment` and `event_noshow`) and passes `this` straight into `EditEvent()`, bypassing the broken lookup entirely — which is why double-click always worked and single-click never did for this category.
+
+**Impact:** Any appointment left in a category whose day-view class isn't literally `event_appointment` (confirmed for "No Show"; not exhaustively tested against the other 14 categories in `openemr_postcalendar_categories`) can never be reopened via the documented single-click "Click to edit" affordance — a real front-desk user would hit this, not just this test suite.
+
+**Test-side fix:** `CalendarPage.openExistingAppointment()` now double-clicks the appointment's wrapping `div.event` (matched by patient-identifying text, not by time — see below) instead of single-clicking the inner `a.event_time` link, sidestepping the app bug the way double-click already does. Two compounding test bugs were fixed alongside it: (1) `existingAppointmentLink`/`openExistingAppointment` previously matched `.first()` of all elements at a given clock time with no patient scoping, so on a non-fresh environment with multiple stale same-time fixture appointments (a known, separately-tracked gap — see `TEST-PLAN.md`'s test-data-lifecycle item), it could silently open and act on the wrong appointment entirely; it now matches on the specific patient's last name instead. (2) `deleteCurrentEvent()`/`openExistingAppointment()` had no wait for the edit dialog's iframe to actually finish loading after the click before looking up `#form_delete`, so `frame?.$('#form_delete')` could resolve `undefined` and `button?.click()` would silently no-op via optional chaining — the same "operation silently did nothing" shape already documented elsewhere in this project (see finding #3). A short poll for the iframe to attach was added, matching the existing `confirmDuplicateCheck()` polling pattern in `PatientRegistrationPage.ts`.
+
+**Automated coverage:** `patient-scheduling.spec.ts`'s `canceling an appointment removes it from the day view`, now reliably green; confirmed via a direct DB check (not just the UI assertion) that the row is actually removed from `openemr_postcalendar_events`.

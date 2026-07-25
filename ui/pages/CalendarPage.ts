@@ -20,8 +20,8 @@ export class CalendarPage {
     return this.content().locator(`a[title="New Appointment"]:has-text("${time}")`)
   }
 
-  existingAppointmentLink(time: string): Locator {
-    return this.content().locator(`a.event_time:has-text("${time}")`).first()
+  existingAppointmentElement(identifyingText: string): Locator {
+    return this.content().locator('div.event', { hasText: identifyingText }).first()
   }
 
   eventFrame(): Frame | null {
@@ -32,8 +32,12 @@ export class CalendarPage {
     await this.newAppointmentLink(time).click()
   }
 
-  async openExistingAppointment(time: string): Promise<void> {
-    await this.existingAppointmentLink(time).click()
+  async openExistingAppointment(identifyingText: string): Promise<void> {
+    await this.existingAppointmentElement(identifyingText).dblclick()
+    const deadline = Date.now() + 10000
+    while (Date.now() < deadline && !this.eventFrame()) {
+      await this.page.waitForTimeout(200)
+    }
   }
 
   async fillAppointment(title: string, patientPid: number, patientLastName: string, patientFirstName: string, patientDob: string): Promise<void> {
@@ -61,5 +65,6 @@ export class CalendarPage {
     const frame = this.eventFrame()
     const button = await frame?.$('#form_delete')
     await button?.click()
+    await this.page.waitForTimeout(1000)
   }
 }
