@@ -67,4 +67,35 @@ export class CalendarPage {
     await button?.click()
     await this.page.waitForTimeout(1000)
   }
+
+  async setDateAndTime(date: string, hour: string, minute: string): Promise<void> {
+    const frame = this.eventFrame()
+    await frame?.locator('#form_date').fill(date)
+    await frame?.locator('#form_date').press('Escape')
+    await frame?.locator('[name="form_hour"]').fill(hour)
+    await frame?.locator('[name="form_minute"]').fill(minute)
+  }
+
+  async enableWeeklyRepeat(untilDate: string): Promise<void> {
+    const frame = this.eventFrame()
+    await frame?.locator('#form_repeat').check()
+    await frame?.locator('[name="form_repeat_freq"]').selectOption('1')
+    await frame?.locator('[name="form_repeat_type"]').selectOption('1')
+    await frame?.locator('#form_enddate').fill(untilDate)
+    await frame?.locator('#form_enddate').press('Escape')
+  }
+
+  async goToNextDay(): Promise<void> {
+    await this.content().locator('#nextday').click()
+    await this.page.waitForTimeout(500)
+  }
+
+  providerFilter(): Locator {
+    return this.content().locator('#pc_username')
+  }
+
+  async filterToProviders(usernames: string[]): Promise<void> {
+    await this.providerFilter().selectOption(usernames)
+    await this.page.waitForTimeout(500)
+  }
 }

@@ -84,4 +84,54 @@ test.describe('Patient scheduling', () => {
     await calendar.deleteCurrentEvent()
     await expect(calendar.content().getByText(patient.lastName)).toHaveCount(0)
   })
+
+  test('rescheduling an appointment updates its displayed time', async ({ page }) => {
+    const registration = new PatientRegistrationPage(page)
+    const patient = await createTestPatient(page, registration)
+    const calendar = new CalendarPage(page)
+    await calendar.goto()
+    await calendar.openNewAppointmentForm('13:00')
+    await calendar.fillAppointment('Follow-up', patient.pid, patient.lastName, patient.firstName, patient.dob)
+    await calendar.save()
+    const eventElement = calendar.existingAppointmentElement(patient.lastName)
+    await expect(eventElement).toContainText('13:00')
+
+    await calendar.openExistingAppointment(patient.lastName)
+    await calendar.setDateAndTime('2026-07-25', '14', '00')
+    await calendar.save()
+
+    await expect(eventElement).toContainText('14:00')
+    await expect(eventElement).not.toContainText('13:00')
+  })
+
+  test('a weekly recurring appointment appears on the following week', async ({ page }) => {
+    const registration = new PatientRegistrationPage(page)
+    const patient = await createTestPatient(page, registration)
+    const calendar = new CalendarPage(page)
+    await calendar.goto()
+    await calendar.openNewAppointmentForm('15:00')
+    await calendar.fillAppointment('Follow-up', patient.pid, patient.lastName, patient.firstName, patient.dob)
+    await calendar.enableWeeklyRepeat('2026-08-15')
+    await calendar.save()
+    await expect(calendar.content().getByText(patient.lastName)).toBeVisible()
+
+    for (let i = 0; i < 7; i++) {
+      await calendar.goToNextDay()
+    }
+    await expect(calendar.content().getByText(patient.lastName)).toBeVisible()
+  })
+
+  test('clearing the provider filter falls back to the current user instead of showing nothing', async ({ page }) => {
+    const registration = new PatientRegistrationPage(page)
+    const patient = await createTestPatient(page, registration)
+    const calendar = new CalendarPage(page)
+    await calendar.goto()
+    await calendar.openNewAppointmentForm('16:00')
+    await calendar.fillAppointment('Follow-up', patient.pid, patient.lastName, patient.firstName, patient.dob)
+    await calendar.save()
+    await expect(calendar.content().getByText(patient.lastName)).toBeVisible()
+
+    await calendar.filterToProviders([])
+    await expect(calendar.content().getByText(patient.lastName)).toBeVisible()
+  })
 })
