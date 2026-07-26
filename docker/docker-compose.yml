@@ -34,6 +34,10 @@ services:
       OPENEMR_SETTING_rest_api: 1
       OPENEMR_SETTING_rest_fhir_api: 1
       OPENEMR_SETTING_oauth_password_grant: 1
+      OPENEMR_SETTING_portal_onsite_two_enable: 1
+      OPENEMR_SETTING_portal_onsite_two_address: https://localhost:9300/portal
+      OPENEMR_SETTING_enforce_signin_email: 0
+      OPENEMR_SETTING_portal_force_credential_reset: 1
       DEMO_MODE: standard
       EASY_DEV_MODE: 1
     volumes:

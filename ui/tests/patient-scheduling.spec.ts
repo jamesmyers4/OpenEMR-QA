@@ -96,8 +96,9 @@ test.describe('Patient scheduling', () => {
     const eventElement = calendar.existingAppointmentElement(patient.lastName)
     await expect(eventElement).toContainText('13:00')
 
+    const today = new Date().toISOString().slice(0, 10)
     await calendar.openExistingAppointment(patient.lastName)
-    await calendar.setDateAndTime('2026-07-25', '14', '00')
+    await calendar.setDateAndTime(today, '14', '00')
     await calendar.save()
 
     await expect(eventElement).toContainText('14:00')
