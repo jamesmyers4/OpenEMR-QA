@@ -2,7 +2,7 @@
 
 Standalone write-ups for the most serious, source-confirmed defects found while building this test suite — pulled out of `CONTEXT.md`'s Known Constraints, where they were competing for attention with routine "here's how this endpoint actually behaves" notes. Every finding here was confirmed against the live instance (a real `curl`/API call, a direct DB query, or both) and root-caused by reading the actual OpenEMR PHP source, not guessed at from documentation. Ordered by severity, most serious first. Each finding names the automated test that demonstrates it, where one exists.
 
-## 1. Message `PUT` never filters by patient — cross-tenant write
+## 1. Message `PUT` never filters by patient — cross-tenant write (COMPLETED)
 
 **Severity:** Critical
 **Status:** Open
@@ -24,7 +24,7 @@ Standalone write-ups for the most serious, source-confirmed defects found while 
 
 ---
 
-## 2. Document upload with a missing `path` leaks server file paths
+## 2. Document upload with a missing `path` leaks server file paths (COMPLETED)
 
 **Severity:** High
 **Status:** Open
@@ -44,7 +44,7 @@ Standalone write-ups for the most serious, source-confirmed defects found while 
 
 ---
 
-## 3. Message `PUT`/`DELETE` report success on zero rows matched
+## 3. Message `PUT`/`DELETE` report success on zero rows matched (COMPLETED)
 
 **Severity:** High
 **Status:** Open
@@ -65,7 +65,7 @@ Standalone write-ups for the most serious, source-confirmed defects found while 
 
 ---
 
-## 4. `PUT /api/patient/{puuid}/insurance/{uuid}` is a full destructive overwrite
+## 4. `PUT /api/patient/{puuid}/insurance/{uuid}` is a full destructive overwrite (COMPLETED)
 
 **Severity:** High
 **Status:** Open
@@ -86,7 +86,7 @@ Standalone write-ups for the most serious, source-confirmed defects found while 
 
 ---
 
-## 5. `GET /api/procedure` crashes the entire endpoint on one bad row
+## 5. `GET /api/procedure` crashes the entire endpoint on one bad row (COMPLETED)
 
 **Severity:** High
 **Status:** Open
@@ -106,7 +106,7 @@ Standalone write-ups for the most serious, source-confirmed defects found while 
 
 ---
 
-## 6. `GET /api/prescription/{uuid}` is unconditionally broken
+## 6. `GET /api/prescription/{uuid}` is unconditionally broken (COMPLETED)
 
 **Severity:** Medium
 **Status:** Open
@@ -124,7 +124,7 @@ Standalone write-ups for the most serious, source-confirmed defects found while 
 
 ---
 
-## 7. `POST`/`PUT /api/insurance_company` always `500`
+## 7. `POST`/`PUT /api/insurance_company` always `500` (COMPLETED)
 
 **Severity:** Medium
 **Status:** Open
@@ -142,7 +142,7 @@ Standalone write-ups for the most serious, source-confirmed defects found while 
 
 ---
 
-## 8. Zero DB triggers exist anywhere in the schema — no audit trail on a direct write
+## 8. Zero DB triggers exist anywhere in the schema — no audit trail on a direct write (COMPLETED)
 
 **Severity:** Medium
 **Status:** Open (by design in this OpenEMR version, not a bug to fix in this project)
@@ -160,7 +160,7 @@ Standalone write-ups for the most serious, source-confirmed defects found while 
 
 ---
 
-## 9. Document upload with a human-readable category silently uploads an unfindable file
+## 9. Document upload with a human-readable category silently uploads an unfindable file (COMPLETED)
 
 **Severity:** Medium
 **Status:** Open
@@ -181,7 +181,7 @@ Standalone write-ups for the most serious, source-confirmed defects found while 
 
 ---
 
-## 10. Patient-nested Allergy `GET` routes always return empty
+## 10. Patient-nested Allergy `GET` routes always return empty (COMPLETED)
 
 **Severity:** Low
 **Status:** Open (workaround exists)
@@ -199,7 +199,7 @@ Standalone write-ups for the most serious, source-confirmed defects found while 
 
 ---
 
-## 11. Neither insurance↔patient nor billing↔encounter has a DB-level foreign key
+## 11. Neither insurance↔patient nor billing↔encounter has a DB-level foreign key (COMPLETED)
 
 **Severity:** Low
 **Status:** Open (architectural characteristic of this OpenEMR version, not something this project can fix)
@@ -217,7 +217,7 @@ Standalone write-ups for the most serious, source-confirmed defects found while 
 
 ---
 
-## 12. `billing.encounter` can't reference the encounter values this project's own fixtures generate
+## 12. `billing.encounter` can't reference the encounter values this project's own fixtures generate (COMPLETED)
 
 **Severity:** Low
 **Status:** Open (latent schema mismatch)
@@ -235,7 +235,7 @@ Standalone write-ups for the most serious, source-confirmed defects found while 
 
 ---
 
-## 13. FHIR was silently disabled by a one-word env var typo (resolved)
+## 13. FHIR was silently disabled by a one-word env var typo (resolved) (COMPLETED)
 
 **Severity:** Was blocking all FHIR coverage; not a current risk
 **Status:** Resolved
@@ -251,7 +251,7 @@ Standalone write-ups for the most serious, source-confirmed defects found while 
 
 ---
 
-## 14. Calendar day-view single-click-to-edit throws a JS error for "No Show"-category appointments (resolved on the test side; real app bug remains)
+## 14. Calendar day-view single-click-to-edit throws a JS error for "No Show"-category appointments (resolved on the test side; real app bug remains) (COMPLETED)
 
 **Severity:** Medium
 **Status:** Open in OpenEMR itself; the corresponding UI test is fixed
@@ -275,7 +275,7 @@ Standalone write-ups for the most serious, source-confirmed defects found while 
 
 ---
 
-## 15. Login page's language `<select>` has no accessible name
+## 15. Login page's language `<select>` has no accessible name (COMPLETED)
 
 **Severity:** Low
 **Status:** Open
@@ -291,7 +291,7 @@ Standalone write-ups for the most serious, source-confirmed defects found while 
 
 ---
 
-## 16. Patient registration form's collapsible sections have invalid `aria-controls` values
+## 16. Patient registration form's collapsible sections have invalid `aria-controls` values (COMPLETED)
 
 **Severity:** Low
 **Status:** Open
@@ -307,7 +307,7 @@ Standalone write-ups for the most serious, source-confirmed defects found while 
 
 ---
 
-## 17. Every FHIR search Bundle's `meta.lastUpdated` violates the official FHIR R4 JSON schema
+## 17. Every FHIR search Bundle's `meta.lastUpdated` violates the official FHIR R4 JSON schema (COMPLETED)
 
 **Severity:** Medium
 **Status:** Open

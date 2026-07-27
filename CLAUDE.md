@@ -18,7 +18,9 @@ node load/run-load-test.mjs
 
 `npx playwright codegen https://localhost:9300` against the running container is the fastest way to confirm real selectors before writing a new UI spec.
 
-On a genuinely fresh volume, wait for both `mariadb` and `openemr` to report `healthy` in `docker compose ps` before running anything — first boot can take several minutes and `openemr` can show `unhealthy` for a while first, which is normal, not a failure. See `HANDOFF.md` for the one-time first-login browser steps (product registration prompt, confirming REST/FHIR API connectors are enabled) required on a fresh volume before the test suites will pass.
+`node docker/reset-env.mjs` does a full `docker compose down -v && up -d` reset and polls both containers to genuinely healthy — use it to clear accumulated local fixture data (CI already resets fresh every run, so this is purely a local-dev hygiene tool; see `TEST-PLAN.md`'s test-data-lifecycle entry).
+
+On a genuinely fresh volume, wait for both `mariadb` and `openemr` to report `healthy` in `docker compose ps` before running anything — first boot can take several minutes and `openemr` can show `unhealthy` for a while first, which is normal, not a failure. No manual first-login browser steps are actually required before the test suites pass: `LoginPage.loginAs()` already auto-dismisses the product-registration modal, and `docker-compose.yml`'s `OPENEMR_SETTING_*` env vars already enable the REST/FHIR/OAuth-password-grant/portal connectors — confirmed by both CI (which never does any manual step) and a local `docker/reset-env.mjs` reset followed by a clean full `dotnet test` run.
 
 ## Code style — follow exactly, do not default to your usual style
 
