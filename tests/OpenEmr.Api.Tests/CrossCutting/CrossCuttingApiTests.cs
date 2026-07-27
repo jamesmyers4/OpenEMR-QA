@@ -95,6 +95,25 @@ public class CrossCuttingApiTests
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest, "a truncated/invalid JSON body should fail validation cleanly, not crash the server, response body was: {0}", raw);
     }
 
+    [Theory]
+    [InlineData("' OR '1'='1")]
+    [InlineData("'; DROP TABLE patient_data; --")]
+    [InlineData("' UNION SELECT username,password,3,4,5,6,7,8,9,10 FROM users-- ")]
+    [InlineData("x' OR 1=1#")]
+    public async Task Get_Patient_List_With_Sql_Injection_Shaped_Lname_Search_Is_Treated_As_A_Literal_String_And_Leaves_Data_Intact(string payload)
+    {
+        var response = await _fixture.Client.GetAsync(OpenEmrEndpoints.Rest(_fixture.Options.SiteId, $"patient?lname={Uri.EscapeDataString(payload)}"));
+        var raw = await response.Content.ReadAsStringAsync();
+        response.StatusCode.Should().Be(HttpStatusCode.OK, "a SQL-injection-shaped search value should be treated as an ordinary, non-matching string by the parameterized search builder, not crash the query, response body was: {0}", raw);
+        var body = JsonDocument.Parse(raw).RootElement;
+        body.GetProperty("data").GetArrayLength().Should().Be(0, "no real patient has this literal string as a last name, so a genuinely parameterized search returns zero matches rather than bypassing the filter (e.g. via ' OR '1'='1) or erroring on a malformed query, response body was: {0}", raw);
+
+        var verify = await _fixture.Client.GetAsync(OpenEmrEndpoints.Rest(_fixture.Options.SiteId, "patient?_limit=1&_offset=0"));
+        var verifyRaw = await verify.Content.ReadAsStringAsync();
+        verify.StatusCode.Should().Be(HttpStatusCode.OK, "the patient table should still be queryable after the preceding injection attempt, response body was: {0}", verifyRaw);
+        JsonDocument.Parse(verifyRaw).RootElement.GetProperty("data").GetArrayLength().Should().Be(1, "the patient_data table's pre-existing rows should be completely unaffected by the preceding SQL-injection-shaped search attempt, proving it wasn't dropped or corrupted, response body was: {0}", verifyRaw);
+    }
+
     [Fact]
     public async Task Get_Patient_List_Honors_Limit_And_Offset_Pagination_Params()
     {
