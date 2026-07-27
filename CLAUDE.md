@@ -13,6 +13,7 @@ Instructions for Claude Code when working in this repo. Read `CONTEXT.md` first 
 cd docker && docker compose up -d
 cd tests && dotnet restore OpenEmr.Tests.sln && dotnet test OpenEmr.Tests.sln
 cd ui && npm install && npx playwright install && npx playwright test
+node load/run-load-test.mjs
 ```
 
 `npx playwright codegen https://localhost:9300` against the running container is the fastest way to confirm real selectors before writing a new UI spec.
