@@ -4,6 +4,7 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using FluentAssertions;
 using OpenEmr.Api.Tests.Fixtures;
+using OpenEmr.Api.Tests.Fhir;
 
 namespace OpenEmr.Api.Tests.Encounter;
 
@@ -73,6 +74,12 @@ public class EncounterApiTests
         body.GetProperty("entry").EnumerateArray().Should().Contain(
             e => e.GetProperty("resource").GetProperty("subject").GetProperty("reference").GetString() == $"Patient/{puuid}",
             "response body was: {0}", raw);
+        FhirSchemaValidator.ValidateBundleAllowingKnownLastUpdatedDefect(raw).Should().BeEmpty(
+            "the response should conform to the official FHIR R4 JSON schema aside from the known Bundle.meta.lastUpdated defect (see FINDINGS.md), response body was: {0}", raw);
+        var matchedEntry = body.GetProperty("entry").EnumerateArray().First(
+            e => e.GetProperty("resource").GetProperty("subject").GetProperty("reference").GetString() == $"Patient/{puuid}");
+        FhirSchemaValidator.Validate(matchedEntry.GetProperty("resource").GetRawText(), "Encounter").Should().BeEmpty(
+            "the created Encounter's own FHIR representation should conform to the official Encounter schema, not just the surrounding Bundle envelope, response body was: {0}", raw);
     }
 
     private async Task<string> CreateTestPatientAsync(string first, string last)

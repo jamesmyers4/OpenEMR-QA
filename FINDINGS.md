@@ -304,3 +304,21 @@ Standalone write-ups for the most serious, source-confirmed defects found while 
 **Impact:** A screen reader announces these expand/collapse buttons without any indication of which content region they control, since the `aria-controls` reference is broken — the visual/mouse experience is unaffected since the actual `data-target`-driven Bootstrap collapse behavior still works.
 
 **Automated coverage:** `accessibility.spec.ts`'s `patient registration form has exactly one known critical violation: invalid aria-controls on the collapsible sections`.
+
+---
+
+## 17. Every FHIR search Bundle's `meta.lastUpdated` violates the official FHIR R4 JSON schema
+
+**Severity:** Medium
+**Status:** Open
+**Component:** `FhirResourcesService::createBundle()` (`src/Services/FHIR/FhirResourcesService.php`)
+
+**Summary:** The FHIR `instant` datatype (used by `Bundle.meta.lastUpdated`) requires a full ISO 8601 datetime with an explicit timezone offset or `Z` suffix — the official `fhir.schema.json`'s pattern for it hard-requires this. Every FHIR search response from this OpenEMR version sets the *Bundle's own* `meta.lastUpdated` to a bare, timezone-less local timestamp instead (e.g. `"2026-07-27T16:06:52"`), which fails that pattern. This is systemic, not a one-off: validating a real search Bundle for all 7 FHIR resources this project covers (Patient, Appointment, Encounter, AllergyIntolerance, Condition, MedicationRequest, Observation) against the official schema turns up exactly this one violation, every time, and no others.
+
+**Repro:** `GET /fhir/{any resource}` and inspect the root `meta.lastUpdated` — it's always `Y-m-d\TH:i:s` with no offset. Compare to any individual entry's own `resource.meta.lastUpdated` (e.g. `entry[0].resource.meta.lastUpdated`), which *is* correctly formatted (`"2026-07-21T23:49:48+00:00"`) — the defect is isolated to the Bundle envelope's own metadata, not the resources it contains.
+
+**Root cause:** Confirmed by reading source directly: `FhirResourcesService::createBundle()` builds the Bundle's `meta` with `$nowDate = date("Y-m-d\TH:i:s"); $meta = array('lastUpdated' => $nowDate);` — plain PHP `date()`, which has no timezone-offset format specifier here at all. Every per-resource FHIR service, by contrast, builds its *own* resource-level `meta.lastUpdated` via `UtilsService::getDateFormattedAsUTC()` (`(new \DateTime())->format(DATE_ATOM)`) or an equivalent `DATE_ATOM`-formatted call, which does include the offset — so the underlying FHIR resource-conversion code already knows how to do this correctly, this one Bundle-envelope call site just doesn't reuse it.
+
+**Impact:** Any real integration or FHIR client that validates responses against the official R4 JSON schema before accepting them — a normal, expected practice for interoperability testing — would reject every single search result this server returns, regardless of resource type. A bare `resourceType === "Bundle"` spot-check (the assertion this project's own FHIR tests used before this session) can never catch this, since the field is present and superficially date-shaped; only real schema validation surfaces it.
+
+**Automated coverage:** `FhirSchemaValidator.ValidateBundleAllowingKnownLastUpdatedDefect()` (`tests/OpenEmr.Api.Tests/Fhir/FhirSchemaValidator.cs`), used by all 7 `Fhir_*_Search` tests across `PatientApiTests.cs`, `AppointmentApiTests.cs`, `EncounterApiTests.cs`, `AllergyApiTests.cs`, `ConditionApiTests.cs`, `MedicationRequestApiTests.cs`, and `ObservationApiTests.cs` — validates the full response against the real, official `fhir.schema.json` (vendored at `tests/OpenEmr.Api.Tests/Fhir/Schemas/fhir.schema.json`) and asserts zero violations *other than* this one documented, path-excluded defect, so the tests stay green until it's fixed or a genuinely new schema regression appears (same pattern as `FINDINGS.md` #1 and the accessibility findings above). The 4 tests that already isolate one specific fixture-created entry (Encounter, AllergyIntolerance, Condition, MedicationRequest) additionally validate that entry's `resource` object against its own resource-type schema definition (e.g. `"Encounter"`), confirmed to pass cleanly — the per-resource FHIR conversion itself is schema-compliant; only the shared Bundle-wrapping code has this defect.

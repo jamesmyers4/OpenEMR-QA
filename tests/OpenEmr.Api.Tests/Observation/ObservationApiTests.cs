@@ -3,6 +3,7 @@ using System.Net;
 using System.Text.Json;
 using FluentAssertions;
 using OpenEmr.Api.Tests.Fixtures;
+using OpenEmr.Api.Tests.Fhir;
 
 namespace OpenEmr.Api.Tests.Observation;
 
@@ -24,5 +25,7 @@ public class ObservationApiTests
         response.StatusCode.Should().Be(HttpStatusCode.OK, "response body was: {0}", raw);
         var body = JsonDocument.Parse(raw).RootElement;
         body.GetProperty("resourceType").GetString().Should().Be("Bundle", "response body was: {0}", raw);
+        FhirSchemaValidator.ValidateBundleAllowingKnownLastUpdatedDefect(raw).Should().BeEmpty(
+            "the response should conform to the official FHIR R4 JSON schema aside from the known Bundle.meta.lastUpdated defect (date() with no timezone in FhirResourcesService::createBundle(), see FINDINGS.md), response body was: {0}", raw);
     }
 }
