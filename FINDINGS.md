@@ -272,3 +272,35 @@ Standalone write-ups for the most serious, source-confirmed defects found while 
 **Test-side fix:** `CalendarPage.openExistingAppointment()` now double-clicks the appointment's wrapping `div.event` (matched by patient-identifying text, not by time — see below) instead of single-clicking the inner `a.event_time` link, sidestepping the app bug the way double-click already does. Two compounding test bugs were fixed alongside it: (1) `existingAppointmentLink`/`openExistingAppointment` previously matched `.first()` of all elements at a given clock time with no patient scoping, so on a non-fresh environment with multiple stale same-time fixture appointments (a known, separately-tracked gap — see `TEST-PLAN.md`'s test-data-lifecycle item), it could silently open and act on the wrong appointment entirely; it now matches on the specific patient's last name instead. (2) `deleteCurrentEvent()`/`openExistingAppointment()` had no wait for the edit dialog's iframe to actually finish loading after the click before looking up `#form_delete`, so `frame?.$('#form_delete')` could resolve `undefined` and `button?.click()` would silently no-op via optional chaining — the same "operation silently did nothing" shape already documented elsewhere in this project (see finding #3). A short poll for the iframe to attach was added, matching the existing `confirmDuplicateCheck()` polling pattern in `PatientRegistrationPage.ts`.
 
 **Automated coverage:** `patient-scheduling.spec.ts`'s `canceling an appointment removes it from the day view`, now reliably green; confirmed via a direct DB check (not just the UI assertion) that the row is actually removed from `openemr_postcalendar_events`.
+
+---
+
+## 15. Login page's language `<select>` has no accessible name
+
+**Severity:** Low
+**Status:** Open
+**Component:** `interface/login/login.php`
+
+**Summary:** The language-picker dropdown on the login screen (`<select class="form-control" name="languageChoice" size="1">`) has no `id`, no associated `<label>`, and no `aria-label`/`aria-labelledby` — a screen reader announces it only as "combo box," with no indication of what it selects. Confirmed live via `@axe-core/playwright` (`select-name`, WCAG 4.1.2, `critical` impact) against the actual rendered login page, not the treeLine baseline (which never crawled login at all — the crawl session started pre-authenticated).
+
+**Repro:** Load `/interface/login/login.php?site=default` and run an axe-core scan — `select-name` is the only `critical`-impact violation on the page.
+
+**Impact:** A screen-reader user attempting to change the interface language before logging in has no way to know which control does that.
+
+**Automated coverage:** `accessibility.spec.ts`'s `login page has exactly one known critical violation: the language select has no accessible name` — asserts this exact, current violation set rather than a should-be-clean ideal, consistent with this project's convention of documenting real behavior directly (see finding #1).
+
+---
+
+## 16. Patient registration form's collapsible sections have invalid `aria-controls` values
+
+**Severity:** Low
+**Status:** Open
+**Component:** `interface/new/new.php` (Employer/Stats/Misc/Guardian/Insurance collapsible panels)
+
+**Summary:** Each collapsible section header button (`Employer`, `Stats`, `Misc`, `Guardian`, `Insurance`, and others) sets `aria-controls` to a bare numeric or short id (e.g. `aria-controls="4"`, `aria-controls="ins"`) that doesn't match any real element in the DOM — the actual panel id is `div_4`/`div_ins`. Confirmed live via `@axe-core/playwright` (`aria-valid-attr-value`, WCAG 4.1.2, `critical` impact, 8 affected buttons) against the real patient-registration iframe (`iframe[src$="new.php"]`); this page was never part of the treeLine crawl baseline either.
+
+**Repro:** Log in, open Patient > New/Search, and run an axe-core scan scoped to the page (including the `pat` iframe) — all 8 critical violations are this one rule, one per collapsible section toggle button.
+
+**Impact:** A screen reader announces these expand/collapse buttons without any indication of which content region they control, since the `aria-controls` reference is broken — the visual/mouse experience is unaffected since the actual `data-target`-driven Bootstrap collapse behavior still works.
+
+**Automated coverage:** `accessibility.spec.ts`'s `patient registration form has exactly one known critical violation: invalid aria-controls on the collapsible sections`.
