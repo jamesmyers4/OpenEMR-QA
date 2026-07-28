@@ -88,6 +88,33 @@ public class ConcurrencyApiTests
         survivingFields.Should().HaveCount(1, "InsuranceService::update() runs an unconditional full-column overwrite with no locking (FINDINGS.md #4), so under real concurrent PUTs to the same record, each request's write completely erases every other concurrent request's field rather than merging them - only whichever write physically commits last should still be visible, response body was: {0}", verifyRaw);
     }
 
+    [Fact]
+    public async Task Concurrent_Practitioner_Creates_With_Identical_Username_All_Succeed_With_No_Uniqueness_Guard()
+    {
+        const int concurrentRequests = 5;
+        var sharedUsername = $"racedupe{DateTime.UtcNow.Ticks}";
+        var npiBase = DateTime.UtcNow.Ticks.ToString().Substring(0, 9);
+        try
+        {
+            var tasks = Enumerable.Range(0, concurrentRequests).Select(i => CreatePractitionerRawAsync(sharedUsername, $"{npiBase}{i}", i)).ToArray();
+            var results = await Task.WhenAll(tasks);
+            var statuses = string.Join(",", results.Select(r => (int)r.Status));
+            results.Select(r => r.Status).Should().OnlyContain(status => status == HttpStatusCode.Created, "users.username has no unique constraint at the DB level (confirmed via SHOW INDEX FROM users, see UsersDbTests.cs), so PractitionerService::insert() has nothing to reject a colliding username against - unlike the Patient pid race, there is no guard here for a collision to even sometimes fail against, statuses were: {0}", statuses);
+            var ids = results.Select(r => JsonDocument.Parse(r.Raw).RootElement.GetProperty("data").GetProperty("id").GetInt32()).ToList();
+            ids.Should().OnlyHaveUniqueItems("every concurrent create should still produce its own distinct real user row, just one that happens to share a username with the others");
+            var listResponse = await _fixture.Client.GetAsync(OpenEmrEndpoints.Rest(_fixture.Options.SiteId, "practitioner"));
+            var listRaw = await listResponse.Content.ReadAsStringAsync();
+            var matchingUsernames = JsonDocument.Parse(listRaw).RootElement.GetProperty("data").EnumerateArray().Count(item => item.GetProperty("username").GetString() == sharedUsername);
+            matchingUsernames.Should().Be(concurrentRequests, "all {0} concurrently-created practitioners should be independently visible and indistinguishable from one another by username alone, response body was: {1}", concurrentRequests, listRaw);
+        }
+        finally
+        {
+            await using var connection = new MySqlConnection(_fixture.Options.DbConnectionString);
+            await connection.OpenAsync();
+            await connection.ExecuteAsync("DELETE FROM users WHERE username = @Username", new { Username = sharedUsername });
+        }
+    }
+
     private async Task<(HttpStatusCode Status, string Raw)> CreatePatientRawAsync(string uniqueSuffix)
     {
         var payload = new { fname = "Race", lname = uniqueSuffix, DOB = "1990-01-01", sex = "Female" };
@@ -187,5 +214,13 @@ public class ConcurrencyApiTests
     {
         var payload = new Dictionary<string, string> { [field] = value };
         return await _fixture.Client.PutAsJsonAsync(OpenEmrEndpoints.Rest(_fixture.Options.SiteId, $"patient/{puuid}/insurance/{uuid}"), payload, ExactCasing);
+    }
+
+    private async Task<(HttpStatusCode Status, string Raw)> CreatePractitionerRawAsync(string username, string npi, int index)
+    {
+        var payload = new { fname = $"Race{index}", lname = $"Prac{index}_{DateTime.UtcNow.Ticks}", npi, username };
+        var response = await _fixture.Client.PostAsJsonAsync(OpenEmrEndpoints.Rest(_fixture.Options.SiteId, "practitioner"), payload, ExactCasing);
+        var raw = await response.Content.ReadAsStringAsync();
+        return (response.StatusCode, raw);
     }
 }

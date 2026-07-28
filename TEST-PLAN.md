@@ -76,6 +76,7 @@ Per `CONTEXT.md`'s Purpose & Vision item 3, this phase was deliberately deferred
 - [x] Concurrent `PUT`s to the same Message id — confirmed a genuine lost-update race under real load (only 6–7 of 10 concurrent marker-appends survive), extending the already-known `FINDINGS.md` #1/#3 missing-locking pattern from a sequential-wrong-id demonstration to real concurrent traffic (`FINDINGS.md` #19).
 - [x] Concurrent `DELETE`s of the same Appointment id — confirmed all report success regardless of which single request actually performed the delete (`FINDINGS.md` #19).
 - [x] Concurrent `PUT`s to the same Patient Insurance record, each touching a different field — confirmed a real, concurrency-amplified escalation of the already-known destructive-overwrite defect (`FINDINGS.md` #4): of 5 concurrent single-field updates, exactly one survives (whichever commits last), silently erasing the other four callers' already-applied changes with no error to anyone (`FINDINGS.md` #20).
+- [x] Concurrent Practitioner creates sharing an identical username — confirmed a genuinely unguarded race, not just a narrow timing window: `users.username` has no uniqueness check at either the DB or application layer, so every one of 5 concurrent `POST /api/practitioner` requests with the same username succeeds, every time (`FINDINGS.md` #21). A different flavor from the other three: nothing here ever fails, which is arguably a starker gap than a guard that only sometimes loses a race.
 
 ## Gaps outside the three core layers (worth adding once the above is solid)
 

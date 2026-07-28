@@ -376,3 +376,21 @@ Standalone write-ups for the most serious, source-confirmed defects found while 
 **Impact:** A real multi-user data-loss risk in exactly the kind of workflow a live clinic actually has — billing staff updating a policy number while front-desk staff updates a subscriber's address for the same patient at the same time. Whichever request's database write happens to land last erases the other's change completely, and both staff members see an identical "success" response with no indication anything was lost. This is a more severe, concurrency-amplified instance of finding #4's already-documented destructive-overwrite defect.
 
 **Automated coverage:** `Concurrent_Puts_To_Same_PatientInsurance_Record_Let_The_Last_Writer_Erase_Every_Other_Concurrent_Update` (`ConcurrencyApiTests.cs`) fires 5 concurrent single-field `PUT`s and asserts exactly one of the five distinct field values survives in the final record.
+
+---
+
+## 21. Concurrent Practitioner creates with an identical username all succeed — `users.username` has no uniqueness guard at any layer (COMPLETED)
+
+**Severity:** Medium
+**Status:** Open
+**Component:** `PractitionerService::insert()` (`src/Services/PractitionerService.php`), backed by `users.username`
+
+**Summary:** Unlike the Patient `pid` race (finding #18), which does have a real DB-level guard that the app layer merely mishandles, there is no protection at all here against duplicate usernames. Firing several concurrent `POST /api/practitioner` requests with the identical `username` produces exactly that many real, independently-addressable practitioner accounts, all sharing one username, with zero rejection at any layer.
+
+**Repro:** Fire 5 concurrent `POST /api/practitioner` requests, each with a distinct `fname`/`lname`/`npi` but the identical `username`. All 5 return `201 Created` with distinct real ids/uuids. `GET /api/practitioner` afterward lists all 5, all sharing the identical username, with no indication anything unusual happened. Confirmed reproducible every single time — unlike the Patient/Message/Insurance races, this isn't a narrow timing window that sometimes loses, it always succeeds for every request, since nothing anywhere in the stack can reject a colliding value.
+
+**Root cause:** `users.username` has no unique index at the database level (confirmed via `SHOW INDEX FROM users`, already a documented known constraint and covered passively by `UsersDbTests.cs`'s `Users_Table_Has_No_Duplicate_Populated_Usernames`/`Users_Table_Has_No_Unique_Constraint_On_Username`/`Direct_Insert_Duplicate_Username_Is_Accepted_By_Schema_Then_Rolled_Back`), and neither `PractitionerValidator` nor `PractitionerService::insert()` perform any application-level uniqueness check either — confirmed by reading source, only `fname`, `lname`, and `npi` are validated as required; `username` is never checked against existing rows.
+
+**Impact:** A real account-identity-confusion risk in a workflow OpenEMR itself makes plausible — two admin operators provisioning new provider accounts around the same time, or a provisioning script re-run without first checking for an existing record, can silently create multiple, indistinguishable-by-username login accounts. Since `AuthUtils.php`'s login lookup (per `UsersDbTests.cs`'s existing `Direct_Insert_Disabled_User_Is_Excluded_By_Login_Active_Predicate_Then_Rolled_Back` test) matches on username via `WHERE BINARY username = ?`, a genuine duplicate resolves to whichever row the query happens to return first — a real login-identity ambiguity, not just a data-hygiene nitpick.
+
+**Automated coverage:** `Concurrent_Practitioner_Creates_With_Identical_Username_All_Succeed_With_No_Uniqueness_Guard` (`ConcurrencyApiTests.cs`) fires 5 concurrent creates with a shared username and asserts all 5 succeed with distinct ids, all remaining independently visible in the practitioner list under that username. The test cleans up its own fixture rows in a `finally` block (the same pattern already established by `ProcedureApiTests`'s intentionally-orphaned-row cleanup) — leaving them behind would permanently poison `UsersDbTests.Users_Table_Has_No_Duplicate_Populated_Usernames`, a real collision this test's own first draft caused live during this session before the cleanup was added.
