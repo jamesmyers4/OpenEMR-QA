@@ -358,3 +358,21 @@ Standalone write-ups for the most serious, source-confirmed defects found while 
 **Impact:** Two concurrent edits to the same clinical note can silently lose one edit's content with no indication to either caller that anything was dropped. A doubled cancel/delete action reports identical success whether it was the first, real delete or a redundant no-op — low-risk for Appointment in isolation (the end state, "the appointment is gone," is the same either way), but it's the same silent-failure-reporting shape that is genuinely dangerous elsewhere in this API (see finding #3's wrong-pid `DELETE` case, where the redundant call's silent no-op is exactly the dangerous part).
 
 **Automated coverage:** `Concurrent_Puts_To_Same_Message_Lose_Updates_Under_Race` and `Concurrent_Deletes_Of_Same_Appointment_All_Report_Success_Though_Only_One_Row_Existed`, both in `ConcurrencyApiTests.cs`.
+
+---
+
+## 20. Concurrent `PUT`s to the same Patient Insurance record let the last writer silently erase every other concurrent update, not just its own unset fields (COMPLETED)
+
+**Severity:** High
+**Status:** Open
+**Component:** `InsuranceService::update()` (`src/Services/InsuranceService.php`)
+
+**Summary:** Finding #4 already established that a single `PUT` to this endpoint is a full, unconditional column overwrite — any field not included in that one request's payload is nulled. Under genuine concurrent traffic this amplifies into a materially more dangerous multi-user failure mode: when two or more callers each `PUT` a different single field of the *same* insurance record at the same time, every field update except whichever request's write physically commits last is silently discarded — including fields that a different, already-completed concurrent request had just successfully written moments earlier. Every caller involved receives an identical `200` success response.
+
+**Repro:** Create a Patient Insurance record with a full set of subscriber fields populated. Fire 5 concurrent `PUT` requests at the same uuid, each setting exactly one different field (`policy_number`, `subscriber_lname`, `subscriber_fname`, `subscriber_city`, `subscriber_state`) to a distinct, recognizable value. All 5 responses return `200`. `GET` the record afterward: only one of the five fields — whichever request's `UPDATE` physically committed last — retains its new value; the other four requests' updates are gone with no error or warning anywhere, exactly as if those calls had never been made. Confirmed live via both raw concurrent `curl` and the automated test below, reproducible every time.
+
+**Root cause:** Same as finding #4 — `InsuranceRestController::put()` passes the raw request body straight to `InsuranceService::update()`, which runs a single `UPDATE insurance_data SET <every column> = ? ... WHERE uuid = ?` using only that one request's `$data` values, with no locking, no optimistic-concurrency check (no version/timestamp comparison), and no partial-column update logic. Finding #4 demonstrated the danger from a single caller's own perspective (a caller who doesn't realize `PUT` isn't a partial patch loses their own previously-set data). This finding demonstrates the same root cause is materially worse across concurrent callers: it is not merely "my own omitted fields get nulled," it is "any other caller's concurrent, already-applied write to this same record can be silently annihilated by my own write, and vice versa," with neither caller ever informed.
+
+**Impact:** A real multi-user data-loss risk in exactly the kind of workflow a live clinic actually has — billing staff updating a policy number while front-desk staff updates a subscriber's address for the same patient at the same time. Whichever request's database write happens to land last erases the other's change completely, and both staff members see an identical "success" response with no indication anything was lost. This is a more severe, concurrency-amplified instance of finding #4's already-documented destructive-overwrite defect.
+
+**Automated coverage:** `Concurrent_Puts_To_Same_PatientInsurance_Record_Let_The_Last_Writer_Erase_Every_Other_Concurrent_Update` (`ConcurrencyApiTests.cs`) fires 5 concurrent single-field `PUT`s and asserts exactly one of the five distinct field values survives in the final record.

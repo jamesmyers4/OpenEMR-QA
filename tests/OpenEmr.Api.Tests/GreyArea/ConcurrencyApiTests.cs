@@ -65,6 +65,29 @@ public class ConcurrencyApiTests
         remaining.StatusCode.Should().Be(HttpStatusCode.NotFound, "only one row ever existed to delete, so after the race every appointment for this patient should genuinely be gone, matching the existing empty-list-becomes-404 pattern already confirmed on this resource");
     }
 
+    [Fact]
+    public async Task Concurrent_Puts_To_Same_PatientInsurance_Record_Let_The_Last_Writer_Erase_Every_Other_Concurrent_Update()
+    {
+        var puuid = await CreateTestPatientUuidAsync("Katherine", "InsuranceRace");
+        var uuid = await CreateFullTestInsuranceAsync(puuid);
+        var fieldValues = new Dictionary<string, string>
+        {
+            ["policy_number"] = "RaceValue_policy_number",
+            ["subscriber_lname"] = "RaceValue_subscriber_lname",
+            ["subscriber_fname"] = "RaceValue_subscriber_fname",
+            ["subscriber_city"] = "RaceValue_subscriber_city",
+            ["subscriber_state"] = "NY"
+        };
+        var tasks = fieldValues.Select(kvp => PutInsuranceSingleFieldAsync(puuid, uuid, kvp.Key, kvp.Value)).ToArray();
+        var responses = await Task.WhenAll(tasks);
+        responses.Select(r => r.StatusCode).Should().OnlyContain(status => status == HttpStatusCode.OK, "InsuranceRestController::put() reports 200 for every one of these concurrent full-column overwrites regardless of which one actually stuck");
+        var verify = await _fixture.Client.GetAsync(OpenEmrEndpoints.Rest(_fixture.Options.SiteId, $"patient/{puuid}/insurance/{uuid}"));
+        var verifyRaw = await verify.Content.ReadAsStringAsync();
+        var verifyBody = JsonDocument.Parse(verifyRaw).RootElement.GetProperty("data");
+        var survivingFields = fieldValues.Where(kvp => verifyBody.GetProperty(kvp.Key).ValueKind == JsonValueKind.String && verifyBody.GetProperty(kvp.Key).GetString() == kvp.Value).ToList();
+        survivingFields.Should().HaveCount(1, "InsuranceService::update() runs an unconditional full-column overwrite with no locking (FINDINGS.md #4), so under real concurrent PUTs to the same record, each request's write completely erases every other concurrent request's field rather than merging them - only whichever write physically commits last should still be visible, response body was: {0}", verifyRaw);
+    }
+
     private async Task<(HttpStatusCode Status, string Raw)> CreatePatientRawAsync(string uniqueSuffix)
     {
         var payload = new { fname = "Race", lname = uniqueSuffix, DOB = "1990-01-01", sex = "Female" };
@@ -122,5 +145,47 @@ public class ConcurrencyApiTests
         await using var connection = new MySqlConnection(_fixture.Options.DbConnectionString);
         await connection.OpenAsync();
         return await connection.QuerySingleAsync<string>("SELECT body FROM pnotes WHERE id = @Id", new { Id = mid });
+    }
+
+    private async Task<string> CreateTestPatientUuidAsync(string first, string last)
+    {
+        var payload = new { fname = first, lname = $"{last}{DateTime.UtcNow.Ticks}", DOB = "1985-05-05", sex = "Female" };
+        var response = await _fixture.Client.PostAsJsonAsync(OpenEmrEndpoints.Rest(_fixture.Options.SiteId, "patient"), payload, ExactCasing);
+        var raw = await response.Content.ReadAsStringAsync();
+        response.IsSuccessStatusCode.Should().BeTrue($"fixture patient creation should succeed, response was: {raw}");
+        var body = JsonDocument.Parse(raw).RootElement;
+        return body.GetProperty("data").GetProperty("uuid").GetString()!;
+    }
+
+    private async Task<string> CreateFullTestInsuranceAsync(string puuid)
+    {
+        var payload = new
+        {
+            type = "primary",
+            provider = "1",
+            policy_number = $"POL{DateTime.UtcNow.Ticks}",
+            subscriber_lname = "OriginalLast",
+            subscriber_fname = "OriginalFirst",
+            subscriber_relationship = "spouse",
+            subscriber_DOB = "1988-02-02",
+            subscriber_street = "123 Test St",
+            subscriber_postal_code = "54321",
+            subscriber_city = "Testville",
+            subscriber_state = "CA",
+            subscriber_sex = "Female",
+            accept_assignment = "TRUE",
+            date = "2026-01-01",
+            date_end = "2026-12-31"
+        };
+        var response = await _fixture.Client.PostAsJsonAsync(OpenEmrEndpoints.Rest(_fixture.Options.SiteId, $"patient/{puuid}/insurance"), payload, ExactCasing);
+        var raw = await response.Content.ReadAsStringAsync();
+        response.StatusCode.Should().Be(HttpStatusCode.OK, $"fixture insurance creation should succeed, response was: {raw}");
+        return JsonDocument.Parse(raw).RootElement.GetProperty("data").GetProperty("uuid").GetString()!;
+    }
+
+    private async Task<HttpResponseMessage> PutInsuranceSingleFieldAsync(string puuid, string uuid, string field, string value)
+    {
+        var payload = new Dictionary<string, string> { [field] = value };
+        return await _fixture.Client.PutAsJsonAsync(OpenEmrEndpoints.Rest(_fixture.Options.SiteId, $"patient/{puuid}/insurance/{uuid}"), payload, ExactCasing);
     }
 }
