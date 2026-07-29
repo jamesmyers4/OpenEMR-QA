@@ -8,12 +8,22 @@ export class DuplicatePatientsPage {
   }
 
   async goto(): Promise<void> {
-    await this.page.getByRole('button', { name: 'Admin', exact: true }).click()
-    await this.page.waitForTimeout(500)
-    await this.page.getByRole('button', { name: 'Patients', exact: true }).click()
-    await this.page.waitForTimeout(500)
-    const patientsSection = this.page.locator('.menuSection', { has: this.page.getByRole('button', { name: 'Patients', exact: true }) }).first()
-    await patientsSection.locator('.menuLabel', { hasText: 'Manage Duplicates' }).click()
+    await this.clickUntilNextIsVisible('Admin', 'Patients')
+    await this.clickUntilNextIsVisible('Patients', 'Manage Duplicates')
+    await this.page.locator('.menuLabel', { hasText: 'Manage Duplicates' }).first().click()
+  }
+
+  private async clickUntilNextIsVisible(toClickText: string, revealsText: string): Promise<void> {
+    const revealed = this.page.locator('.menuLabel', { hasText: revealsText }).first()
+    const deadline = Date.now() + 15000
+    while (Date.now() < deadline) {
+      await this.page.locator('.menuLabel', { hasText: toClickText }).first().click()
+      const becameVisible = await revealed.waitFor({ state: 'visible', timeout: 2000 }).then(() => true).catch(() => false)
+      if (becameVisible) {
+        return
+      }
+    }
+    throw new Error(`'${revealsText}' never became visible after repeatedly clicking '${toClickText}'`)
   }
 
   managerFrame(): Frame | null {
