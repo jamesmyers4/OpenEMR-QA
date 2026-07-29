@@ -8,7 +8,7 @@ export class CalendarPage {
   }
 
   async goto(): Promise<void> {
-    await this.page.locator('.menuLabel', { hasText: 'Calendar' }).first().click()
+    await this.page.locator('.menuLabel', { hasText: 'Calendar' }).first().click({ force: true })
     await this.page.waitForTimeout(500)
   }
 
