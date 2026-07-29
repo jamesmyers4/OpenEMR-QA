@@ -33,16 +33,23 @@ Sessions are grouped by theme, not strict priority, but roughly ordered high-val
 ---
 
 ### Session 2: Root-cause the Bootstrap nested-dropdown timing race in DuplicatePatientsPage
+**Status:** Done (investigated, not reproduced — see outcome below and Session 2b for the narrower follow-up)
+
+**Outcome (2026-07-29):** First ruled out a theory carried over from the Session 1 investigation: the `Admin` menu item is a genuine Bootstrap dropdown (`data-toggle="dropdown"`, real `show.bs.dropdown`/`shown.bs.dropdown` events firing normally), not the Knockout `menuActionClick`-bound mechanism the Calendar tab uses — different subsystem, despite the shared `.menuLabel` styling that made them look related. Then tried to catch the actual race live with a throwaway probe: 16 single-worker trials reproducing the real preconditions (`admin-duplicate-merge.spec.ts`'s two preceding patient registrations, then one raw, unretried click on `Admin`, with Bootstrap dropdown events instrumented). 15 of 16 trials reached the click; **all 15 succeeded immediately, first try, 60-124ms — the race did not reproduce even once**, a cleaner result than the original investigation's own "occasionally needs one retry" baseline from its 11 trials. Left `clickUntilNextIsVisible()`'s retry loop in place — no evidence it's safe to remove, and there was nothing to fix without being able to observe the failure. Full trail in `CONTEXT.md`'s decision-log entry and `HANDOFF.md` item 7. See Session 2b for the one variable this session didn't try.
+
+---
+
+### Session 2b: Try to trigger the DuplicatePatientsPage dropdown race under real full-suite parallel load
 **Status:** Open
 
-**Why:** The same Firefox investigation left one thing genuinely unsolved, not just mitigated: `Admin` → `Patients` dropdown sometimes never visibly opens, root cause unknown, currently papered over with a retry-until-visible loop (`clickUntilNextIsVisible()`). This is real, uninvestigated app-timing behavior, not a test-authoring bug — worth a dedicated dig now that the two adjacent, better-understood bugs are fixed and won't confuse the signal.
+**Why:** Session 2's 16 isolated single-worker trials never reproduced the race even once, despite matching the original investigation's methodology closely. The one thing that repro didn't vary: the *original* discovery of this race came from "a much-worse-than-baseline full-suite run" (per `HANDOFF.md` item 5), not an isolated single-spec run — real concurrent load (other specs/workers hitting the same OpenEMR container at the same time) might be a genuine precondition, not just noise the original investigation controlled for.
 
 **Do:**
-1. Use a throwaway diagnostic probe script (same technique `HANDOFF.md` describes using for the `getByRole` a11y-tree gap) — dump the dropdown's DOM state / Bootstrap event firing at the moment a click fails to open it.
-2. Try to isolate: is this a CSS-transition race, a JS event-listener-attachment-order issue, a `nested-dropdown` z-index/overlay issue, or something else?
-3. If a real root cause is found, consider whether the fix belongs in the retry loop (replace polling with a deterministic wait on the right condition) or is purely an app-level bug worth a new `FINDINGS.md` entry (if it's a genuine OpenEMR UI defect, not a test artifact).
+1. Run the full UI suite (`npx playwright test`, default CI-matching `--workers=2`, both browsers) repeatedly — not just `admin-duplicate-merge.spec.ts` in isolation — and watch specifically for `DuplicatePatientsPage`-related failures/retries in `admin-duplicate-merge.spec.ts` and `admin-duplicate-merge-race.spec.ts`.
+2. If it reproduces under real load but not in isolation, that's itself the finding worth documenting — a real resource-contention-dependent client-side race, distinct from the Calendar/Knockout issue. Try to capture what's different about the DOM/timing under load (e.g., does the dropdown's CSS transition take measurably longer when the container/browser is under more load, causing the 2s-per-attempt window in `clickUntilNextIsVisible()` to sometimes not be enough?).
+3. If it still doesn't reproduce under load either, this has now been investigated about as thoroughly as reasonable for a retry-loop-mitigated, low-impact issue — say so plainly in `CONTEXT.md` and consider this closed as "mitigated, low-frequency, not further reproducible" rather than scheduling a third attempt.
 
-**Definition of done:** Either the retry-loop mitigation gets replaced with a real fix (and `CONTEXT.md`'s existing decision-log entry updated to say "resolved," not just "mitigated"), or the investigation comes up empty and that's written up honestly as still-open with what was ruled out — same standard as every other investigation in this repo. This is explicitly a "might not resolve cleanly" session; don't force a conclusion.
+**Definition of done:** Either a real reproduction with a genuine root cause and fix, or an honest final note in `CONTEXT.md` that two independent, methodologically-different attempts (isolated single-spec, and full-suite load) both failed to pin it down further than the existing retry-loop mitigation — a legitimate stopping point, not a gap to keep re-opening indefinitely.
 
 ---
 
