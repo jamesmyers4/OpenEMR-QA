@@ -10,6 +10,14 @@ export class CalendarPage {
   async goto(): Promise<void> {
     await this.page.locator('.menuLabel', { hasText: 'Calendar' }).first().click({ force: true })
     await this.page.waitForTimeout(500)
+    const visible = await this.page.locator('iframe[name="cal"]').isVisible().catch(() => false)
+    if (!visible) {
+      await this.page.evaluate(() => {
+        const w = window as unknown as { activateTabByName?: (name: string, hideOthers: boolean) => void }
+        w.activateTabByName?.('cal', true)
+      })
+      await this.page.waitForTimeout(500)
+    }
   }
 
   content(): FrameLocator {
