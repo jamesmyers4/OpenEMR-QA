@@ -1,10 +1,10 @@
 # CLAUDE.md
 
-Instructions for Claude Code when working in this repo. Read `CONTEXT.md` first for the why; read `TEST-PLAN.md` for what's currently built vs. still open — that file is the source of truth for what to work on next. `HANDOFF.md` has the current environment-setup/next-steps narrative, `FINDINGS.md` has standalone write-ups of the most serious confirmed defects, and `API-RESPONSE-SHAPES.md` is a per-resource quick reference for response shapes.
+Instructions for Claude Code when working in this repo. Read `CONTEXT.md` first for the why; read `TEST-PLAN.md` for the coverage matrix (fully scaffolded as of 2026-07-28 — it's a record of what's built, not an open task list anymore). `ROADMAP.md` is the current source of truth for what to work on next, broken into individually workable sessions — each is meant to end with you stopping and letting the user commit manually rather than chaining into the next one. `HANDOFF.md` has the environment-setup narrative and build history, `FINDINGS.md` has standalone write-ups of the most serious confirmed defects, and `API-RESPONSE-SHAPES.md` is a per-resource quick reference for response shapes.
 
 ## Before making changes
 
-1. Check `TEST-PLAN.md` for the item being worked on and its current `[ ]`/`[x]` status.
+1. Check `ROADMAP.md` for the session being worked on and its current `Open`/`Done` status. If you're picking up a `TEST-PLAN.md` item instead (rare now that the matrix is fully checked off), check its `[ ]`/`[x]` status there.
 2. If the item touches OpenEMR API fields, table names, or UI selectors you're not certain about, verify against the running container (`docker compose -f docker/docker-compose.yml up -d`, then hit the endpoint or inspect the DOM/table directly) or against `API_README.md` in the OpenEMR repo rather than guessing. Several selectors and a couple of schema assumptions in this repo are best-effort placeholders — do not assume existing code is already verified just because it's present.
 
 ## Running things
