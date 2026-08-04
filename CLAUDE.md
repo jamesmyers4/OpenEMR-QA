@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-Instructions for Claude Code when working in this repo. Read `CONTEXT.md` first for the why; read `TEST-PLAN.md` for the coverage matrix (fully scaffolded as of 2026-07-28 — it's a record of what's built, not an open task list anymore). `ROADMAP.md` is the current source of truth for what to work on next, broken into individually workable sessions — each is meant to end with you stopping and letting the user commit manually rather than chaining into the next one. `HANDOFF.md` has the environment-setup narrative and build history, `FINDINGS.md` has standalone write-ups of the most serious confirmed defects, and `API-RESPONSE-SHAPES.md` is a per-resource quick reference for response shapes.
+Instructions for Claude Code when working in this repo. Read `CONTEXT.md` first for the why; read `TEST-PLAN.md` for the coverage matrix (fully scaffolded as of 2026-07-28 — it's a record of what's built, not an open task list anymore). `ROADMAP.md` is the current source of truth for what to work on next, broken into individually workable sessions — each is meant to end with you stopping and letting the user commit manually rather than chaining into the next one. `FINDINGS.md` has standalone write-ups of the most serious confirmed defects, and `API-RESPONSE-SHAPES.md` is a per-resource quick reference for response shapes.
 
 ## Before making changes
 

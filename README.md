@@ -70,7 +70,6 @@ Bootstraps a dedicated OAuth2 client against the running stack, then fires `load
 CLAUDE.md                     instructions for Claude Code sessions in this repo
 CONTEXT.md                    permanent reference: purpose, architecture, stack decisions, known constraints/decision log
 TEST-PLAN.md                  full coverage matrix (Layers 1-4) and build order
-HANDOFF.md                    point-in-time narrative snapshot of current build status
 FINDINGS.md                   standalone write-ups of the 22 most serious confirmed defects
 API-RESPONSE-SHAPES.md        per-resource quick reference: create status, list envelope, not-found shape
 ROADMAP.md                    forward-looking backlog, broken into individually workable sessions
@@ -96,4 +95,4 @@ treeLine-output/               output + feedback from a treeLine authenticated-c
 
 ## Status
 
-All three test layers (API, DB, UI) are feature-complete against the original `TEST-PLAN.md` coverage matrix, including the full FHIR resource expansion, cross-cutting API concerns (OAuth2, pagination, RBAC, malformed input), accessibility, security/negative testing, contract/schema validation, load testing, and a "grey area" concurrency/reliability phase that has already surfaced 5 additional confirmed race-condition defects. CI runs on every push/PR plus a daily smoke cron and a weekly full-regression cron, both auto-filing/closing a GitHub Issue on failure/recovery. See `HANDOFF.md` for the detailed narrative and `ROADMAP.md` for what's next now that the original scope is done.
+All three test layers (API, DB, UI) are feature-complete against the original `TEST-PLAN.md` coverage matrix, including the full FHIR resource expansion, cross-cutting API concerns (OAuth2, pagination, RBAC, malformed input), accessibility, security/negative testing, contract/schema validation, load testing, and a "grey area" concurrency/reliability phase that has already surfaced 5 additional confirmed race-condition defects. CI runs on every push/PR plus a daily smoke cron and a weekly full-regression cron, both auto-filing/closing a GitHub Issue on failure/recovery. See `ROADMAP.md` for what's next now that the original scope is done.

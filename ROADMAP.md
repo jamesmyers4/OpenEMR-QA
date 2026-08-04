@@ -69,12 +69,12 @@ Sessions are grouped by theme, not strict priority, but roughly ordered high-val
 
 ## Group B — Grey-area reliability phase: explicitly-flagged unfinished sub-areas
 
-`CONTEXT.md`'s Purpose & Vision item 3 scoped this phase to cover race conditions, partial failures, *and* non-concurrency timing-dependent bugs. Only race conditions/concurrency has been touched so far (`FINDINGS.md` #18-22). The other two sub-areas are still fully open. `HANDOFF.md`'s Immediate Next Steps also names two specific untried concurrency candidates.
+`CONTEXT.md`'s Purpose & Vision item 3 scoped this phase to cover race conditions, partial failures, *and* non-concurrency timing-dependent bugs. Only race conditions/concurrency has been touched so far (`FINDINGS.md` #18-22). The other two sub-areas are still fully open. Two specific untried concurrency candidates were also flagged at the time (see Sessions 3 and 4 below).
 
 ### Session 3: Facility concurrent-create race test
 **Status:** Open
 
-**Why:** `HANDOFF.md` explicitly flags this as an untried candidate: "worth checking whether it shares the Practitioner-style unguarded-uniqueness shape or the Patient-style guarded-but-mishandled shape before assuming either." Facility has both a `POST` create and (per `API-RESPONSE-SHAPES.md`) real validation — an unexplored data point for the existing race-condition pattern library.
+**Why:** Flagged as an untried candidate during the grey-area concurrency phase: "worth checking whether it shares the Practitioner-style unguarded-uniqueness shape or the Patient-style guarded-but-mishandled shape before assuming either." Facility has both a `POST` create and (per `API-RESPONSE-SHAPES.md`) real validation — an unexplored data point for the existing race-condition pattern library.
 
 **Do:**
 1. Reuse the `Task.WhenAll`-firing pattern from `ConcurrencyApiTests.cs` (see `tests/OpenEmr.Api.Tests/GreyArea/ConcurrencyApiTests.cs` for the established style — raw concurrent `curl` first to confirm behavior live, per this project's "confirm, don't guess" standard, before writing the C# test).
@@ -88,7 +88,7 @@ Sessions are grouped by theme, not strict priority, but roughly ordered high-val
 ### Session 4: Document category-creation concurrency race
 **Status:** Open
 
-**Why:** The second explicitly-named untried candidate in `HANDOFF.md`. Document upload already has several confirmed defects around category-path resolution (`FINDINGS.md` #2, #9) — worth checking whether concurrent uploads to a *new* category path (one that doesn't exist yet, forcing simultaneous category-row creation) race in an interesting way, distinct from the already-covered single-record races.
+**Why:** The second untried candidate flagged during that same phase. Document upload already has several confirmed defects around category-path resolution (`FINDINGS.md` #2, #9) — worth checking whether concurrent uploads to a *new* category path (one that doesn't exist yet, forcing simultaneous category-row creation) race in an interesting way, distinct from the already-covered single-record races.
 
 **Do:**
 1. Read `DocumentService::getLastIdOfPath()`/`createDocument()` (already partially read for #2/#9) specifically for what happens when the category doesn't exist yet — does it create one, and if so, is that creation itself guarded?
@@ -224,7 +224,7 @@ Sessions are grouped by theme, not strict priority, but roughly ordered high-val
 
 **Do:**
 1. Add GitHub Actions status badges to the top of `README.md` for `ci.yml`, `scheduled-smoke.yml`, and `scheduled-regression.yml` (standard `https://github.com/{owner}/{repo}/actions/workflows/{file}/badge.svg` markdown image syntax) — this requires knowing the actual GitHub remote URL, so confirm it against `git remote -v` first rather than guessing the owner/repo slug.
-2. Add a short "Known flaky spots" section to `README.md` or `HANDOFF.md` (pick whichever fits better — probably `HANDOFF.md`, since `README.md` is meant to stay relatively stable) consolidating: the patient-registration duplicate-check popup flakiness (absorbed by retries), and the still-open patient-portal Firefox issue (unless Session 1 already resolved it by the time this session runs — check first).
+2. Add a short "Known flaky spots" section to `README.md`'s Status section — a consolidated pointer, not a duplicate write-up, since the full detail already lives in `CONTEXT.md`'s Decision Log — covering: the patient-registration duplicate-check popup flakiness (absorbed by retries), and the still-open patient-portal Firefox issue (`ROADMAP.md` Session 1d), unless it's been resolved by the time this session runs (check first).
 
 **Definition of done:** Badges rendering correctly (verify by viewing the rendered README on GitHub, not just the raw markdown), a consolidated flaky-spots note that links back to the relevant `CONTEXT.md` decision-log entries rather than duplicating their content.
 

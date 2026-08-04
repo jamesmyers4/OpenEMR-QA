@@ -1,6 +1,6 @@
 # CONTEXT.md
 
-Permanent reference for this project — what it is, why it exists, and the reasoning behind its major decisions. This document should stay accurate but doesn't need to change week to week. For current build status and active work, see `HANDOFF.md`. For the coverage checklist, see `TEST-PLAN.md`. For a per-resource "what does this endpoint actually return" quick-reference, see `API-RESPONSE-SHAPES.md`. For the standalone write-ups of the most serious confirmed defects, see `FINDINGS.md`.
+Permanent reference for this project — what it is, why it exists, and the reasoning behind its major decisions. This document should stay accurate but doesn't need to change week to week. For what to work on next, see `ROADMAP.md`. For the coverage checklist, see `TEST-PLAN.md`. For a per-resource "what does this endpoint actually return" quick-reference, see `API-RESPONSE-SHAPES.md`. For the standalone write-ups of the most serious confirmed defects, see `FINDINGS.md`.
 
 ## Purpose & Vision
 
@@ -16,7 +16,7 @@ The architectural choice to write API and DB tests in C#/xUnit against a UI laye
 
 ## System Under Test & Domain Mapping
 
-OpenEMR, self-hosted via the official `openemr/openemr` Docker image against a MariaDB sidecar. REST (`/apis/{site}/api`) and FHIR R4 (`/apis/{site}/fhir`) API surfaces both exist; REST is fully working, FHIR access is not yet resolved (see Known Constraints and `HANDOFF.md`). `DEMO_MODE` does not work on the production image tag this project pins — the DB layer seeds its own known fixture patients instead of relying on it (see Known Constraints).
+OpenEMR, self-hosted via the official `openemr/openemr` Docker image against a MariaDB sidecar. REST (`/apis/{site}/api`) and FHIR R4 (`/apis/{site}/fhir`) API surfaces both exist and are fully working (see Known Constraints for the FHIR-enablement fix). `DEMO_MODE` does not work on the production image tag this project pins — the DB layer seeds its own known fixture patients instead of relying on it (see Known Constraints).
 
 Domain mapping to TherapyNotes-style practice-management software, for framing test scenarios:
 
