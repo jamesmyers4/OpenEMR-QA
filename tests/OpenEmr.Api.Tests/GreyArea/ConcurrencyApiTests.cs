@@ -1,6 +1,7 @@
 using Xunit;
 using System.Net;
 using System.Net.Http.Json;
+using System.Net.Http.Headers;
 using System.Text.Json;
 using FluentAssertions;
 using MySqlConnector;
@@ -113,6 +114,35 @@ public class ConcurrencyApiTests
             await connection.OpenAsync();
             await connection.ExecuteAsync("DELETE FROM users WHERE username = @Username", new { Username = sharedUsername });
         }
+    }
+
+    [Fact]
+    public async Task Concurrent_Document_Uploads_To_Same_Existing_Category_All_Succeed_And_Stay_Independently_Listable()
+    {
+        const int concurrentRequests = 10;
+        var pid = await CreateTestPatientAsync("Rosalind", "DocumentRace");
+        var filenames = Enumerable.Range(0, concurrentRequests).Select(i => $"docrace_{i}_{DateTime.UtcNow.Ticks}.txt").ToArray();
+        var tasks = filenames.Select(filename => UploadDocumentRawAsync(pid, "medicalrecord", filename, $"content for {filename}")).ToArray();
+        var results = await Task.WhenAll(tasks);
+        var statuses = string.Join(",", results.Select(r => (int)r.Status));
+        results.Select(r => r.Status).Should().OnlyContain(status => status == HttpStatusCode.OK, "Document::createDocument() generates documents.id via ADOdb's GenID() sequence mechanism (an atomic 'UPDATE sequences SET id=LAST_INSERT_ID(id+1)'), unlike patient_data.pid's unguarded SELECT MAX(pid)+1 pattern, so every concurrent upload should succeed independently rather than colliding, statuses were: {0}", statuses);
+        var listResponse = await _fixture.Client.GetAsync(OpenEmrEndpoints.Rest(_fixture.Options.SiteId, $"patient/{pid}/document?path=medicalrecord"));
+        var listRaw = await listResponse.Content.ReadAsStringAsync();
+        listResponse.StatusCode.Should().Be(HttpStatusCode.OK, "response body was: {0}", listRaw);
+        var listedFilenames = JsonDocument.Parse(listRaw).RootElement.EnumerateArray().Select(item => item.GetProperty("filename").GetString()).ToList();
+        listedFilenames.Should().Contain(filenames, "each concurrent upload's categories_to_documents link row is a REPLACE INTO keyed by that upload's own distinct sequence-generated document_id, so none of the {0} concurrent uploads to this shared category should be able to overwrite or clobber another's link row, response body was: {1}", concurrentRequests, listRaw);
+    }
+
+    private async Task<(HttpStatusCode Status, string Raw)> UploadDocumentRawAsync(int pid, string path, string filename, string fileContent)
+    {
+        using var content = new MultipartFormDataContent();
+        var fileBytes = System.Text.Encoding.UTF8.GetBytes(fileContent);
+        var filePart = new ByteArrayContent(fileBytes);
+        filePart.Headers.ContentType = new MediaTypeHeaderValue("text/plain");
+        content.Add(filePart, "document", filename);
+        var response = await _fixture.Client.PostAsync(OpenEmrEndpoints.Rest(_fixture.Options.SiteId, $"patient/{pid}/document?path={Uri.EscapeDataString(path)}"), content);
+        var raw = await response.Content.ReadAsStringAsync();
+        return (response.StatusCode, raw);
     }
 
     private async Task<(HttpStatusCode Status, string Raw)> CreatePatientRawAsync(string uniqueSuffix)
