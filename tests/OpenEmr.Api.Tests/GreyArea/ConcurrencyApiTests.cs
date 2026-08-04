@@ -125,7 +125,8 @@ public class ConcurrencyApiTests
         var tasks = filenames.Select(filename => UploadDocumentRawAsync(pid, "medicalrecord", filename, $"content for {filename}")).ToArray();
         var results = await Task.WhenAll(tasks);
         var statuses = string.Join(",", results.Select(r => (int)r.Status));
-        results.Select(r => r.Status).Should().OnlyContain(status => status == HttpStatusCode.OK, "Document::createDocument() generates documents.id via ADOdb's GenID() sequence mechanism (an atomic 'UPDATE sequences SET id=LAST_INSERT_ID(id+1)'), unlike patient_data.pid's unguarded SELECT MAX(pid)+1 pattern, so every concurrent upload should succeed independently rather than colliding, statuses were: {0}", statuses);
+        var failingBodies = string.Join(" | ", results.Where(r => r.Status != HttpStatusCode.OK).Select(r => r.Raw));
+        results.Select(r => r.Status).Should().OnlyContain(status => status == HttpStatusCode.OK, "Document::createDocument() generates documents.id via ADOdb's GenID() sequence mechanism (an atomic 'UPDATE sequences SET id=LAST_INSERT_ID(id+1)'), unlike patient_data.pid's unguarded SELECT MAX(pid)+1 pattern, so every concurrent upload should succeed independently rather than colliding, statuses were: {0}, pid: {1}, failing bodies: {2}", statuses, pid, failingBodies);
         var listResponse = await _fixture.Client.GetAsync(OpenEmrEndpoints.Rest(_fixture.Options.SiteId, $"patient/{pid}/document?path=medicalrecord"));
         var listRaw = await listResponse.Content.ReadAsStringAsync();
         listResponse.StatusCode.Should().Be(HttpStatusCode.OK, "response body was: {0}", listRaw);

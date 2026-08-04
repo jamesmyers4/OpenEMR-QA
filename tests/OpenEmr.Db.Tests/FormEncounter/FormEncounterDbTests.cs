@@ -1,6 +1,7 @@
 using Xunit;
 using Dapper;
 using FluentAssertions;
+using MySqlConnector;
 using OpenEmr.Db.Tests.Fixtures;
 
 namespace OpenEmr.Db.Tests.FormEncounter;
@@ -85,6 +86,21 @@ public class FormEncounterDbTests
             WHERE fe.pid = @Pid AND fe.provider_id = @ProviderId AND (p.pid IS NULL OR u.id IS NULL)";
         var orphaned = await _fixture.Connection.QueryAsync(orphanCheckSql, new { Pid = bogusPid, ProviderId = bogusProviderId }, transaction);
         orphaned.Should().NotBeEmpty("there is no FK constraint on form_encounter.pid/provider_id, so the DB itself happily accepts references to a patient and provider that do not exist");
+        await transaction.RollbackAsync();
+    }
+
+    [Fact]
+    public async Task Billing_Row_Cannot_Reference_A_Realistic_Sized_Form_Encounter_Encounter_Value_Then_Rolled_Back()
+    {
+        await using var transaction = await _fixture.Connection.BeginTransactionAsync();
+        var realPid = await _fixture.Connection.ExecuteScalarAsync<int>("SELECT pid FROM patient_data ORDER BY pid LIMIT 1", transaction: transaction);
+        var encounter = DateTime.UtcNow.Ticks;
+        var insertEncounterSql = "INSERT INTO form_encounter (date, reason, facility, pid, encounter) VALUES (NOW(), 'Fixture Visit', 'Fixture Facility', @Pid, @Encounter)";
+        await _fixture.Connection.ExecuteAsync(insertEncounterSql, new { Pid = realPid, Encounter = encounter }, transaction);
+        var insertBillingSql = "INSERT INTO billing (pid, encounter, notecodes, revenue_code) VALUES (@Pid, @Encounter, '', '')";
+        var insertBilling = async () => await _fixture.Connection.ExecuteAsync(insertBillingSql, new { Pid = realPid, Encounter = encounter }, transaction);
+        var assertion = await insertBilling.Should().ThrowAsync<MySqlException>("form_encounter.encounter is bigint(20) and this project's own Encounter fixtures size it from DateTime.UtcNow.Ticks (18 digits), well beyond what billing.encounter's int(11) can hold (~2.1 billion) - a real column-width mismatch predating this project (FINDINGS.md #12), not something a graceful validation layer catches first");
+        assertion.Which.Message.Should().Contain("Out of range value", "MariaDB rejects the value outright at the storage-engine level rather than truncating or coercing it, so a billing row genuinely cannot reference an encounter this large");
         await transaction.RollbackAsync();
     }
 }

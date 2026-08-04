@@ -231,7 +231,7 @@ Standalone write-ups for the most serious, source-confirmed defects found while 
 
 **Impact:** Low severity in isolation, but worth knowing before ever wiring real billing-to-encounter linkage through this schema in a future session.
 
-**Automated coverage:** Documented directly in `CONTEXT.md`'s Known Constraints; no dedicated test, since reproducing it would require an intentionally-overflowing insert with no useful assertion beyond "MariaDB rejects it."
+**Automated coverage:** `Billing_Row_Cannot_Reference_A_Realistic_Sized_Form_Encounter_Encounter_Value_Then_Rolled_Back` in `FormEncounterDbTests.cs` — inserts a `form_encounter` row with a realistic `DateTime.UtcNow.Ticks`-sized `encounter` value (matching this project's existing Encounter fixture pattern), asserts the subsequent `billing` insert throws a `MySqlException` containing "Out of range value," then rolls back. Documents the current broken state as an explicit, checked assertion rather than prose, so a future schema migration that widens `billing.encounter` fails this test in an informative way instead of drifting silently.
 
 ---
 

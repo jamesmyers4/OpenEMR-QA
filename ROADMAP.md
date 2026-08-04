@@ -207,7 +207,9 @@ Sessions are grouped by theme, not strict priority, but roughly ordered high-val
 ---
 
 ### Session 12: Add dedicated test coverage for FINDINGS.md #12 (billing.encounter overflow)
-**Status:** Open
+**Status:** Done
+
+**Outcome (2026-08-04):** Added `Billing_Row_Cannot_Reference_A_Realistic_Sized_Form_Encounter_Encounter_Value_Then_Rolled_Back` to `FormEncounterDbTests.cs`, following the file's own existing insert/verify/rollback transaction pattern: inserts a `form_encounter` row with `encounter` sized from `DateTime.UtcNow.Ticks` (matching the existing fixture convention), attempts a minimal `billing` insert referencing it, and asserts via `Should().ThrowAsync<MySqlException>()` that the insert fails with a message containing "Out of range value" — then rolls back. Passed on first run; full suite re-run clean. `FINDINGS.md` #12's "Automated coverage" line updated from "no dedicated test" to reference the new test.
 
 **Why:** #12 is the one finding in the whole list explicitly marked as having "no dedicated test, since reproducing it would require an intentionally-overflowing insert with no useful assertion beyond 'MariaDB rejects it.'" That reasoning undersells what's actually testable here: the assertion isn't just "it fails," it's "this schema mismatch is real and this project's own Encounter fixtures are large enough to trigger it" — a genuinely useful regression guard against, e.g., a future schema migration silently changing `billing.encounter`'s column width.
 
