@@ -146,6 +146,43 @@ public class ConcurrencyApiTests
         return (response.StatusCode, raw);
     }
 
+    [Fact]
+    public async Task Concurrent_Facility_Creates_With_Identical_Name_And_Npi_All_Succeed_With_No_Uniqueness_Guard()
+    {
+        const int concurrentRequests = 5;
+        var sharedName = $"racefacility{DateTime.UtcNow.Ticks}";
+        var sharedNpi = DateTime.UtcNow.Ticks.ToString().Substring(0, 10);
+        try
+        {
+            var tasks = Enumerable.Range(0, concurrentRequests).Select(_ => CreateFacilityRawAsync(sharedName, sharedNpi)).ToArray();
+            var results = await Task.WhenAll(tasks);
+            var statuses = string.Join(",", results.Select(r => (int)r.Status));
+            results.Select(r => r.Status).Should().OnlyContain(status => status == HttpStatusCode.Created, "facility has neither a DB-level unique index (confirmed via SHOW CREATE TABLE facility - only id's PRIMARY KEY and the app-generated uuid's UNIQUE KEY) nor an application-level uniqueness rule in FacilityValidator for name/facility_npi, so FacilityService::insert() has nothing to reject a colliding create against - the same unguarded shape as Practitioner's username race (FINDINGS.md #21), not Patient's guarded-but-mishandled pid race (FINDINGS.md #18), statuses were: {0}", statuses);
+            var ids = results.Select(r => JsonDocument.Parse(r.Raw).RootElement.GetProperty("data").GetProperty("id").GetInt32()).ToList();
+            var uuids = results.Select(r => JsonDocument.Parse(r.Raw).RootElement.GetProperty("data").GetProperty("uuid").GetString()).ToList();
+            ids.Should().OnlyHaveUniqueItems("facility.id is a genuine AUTO_INCREMENT column, unlike patient_data.pid's unguarded application-computed MAX(pid)+1, so every concurrent create should still produce its own distinct real row even though they share a name and npi");
+            uuids.Should().OnlyHaveUniqueItems("each concurrent create independently generates its own real UuidRegistry uuid regardless of the colliding name/npi");
+            var listResponse = await _fixture.Client.GetAsync(OpenEmrEndpoints.Rest(_fixture.Options.SiteId, "facility"));
+            var listRaw = await listResponse.Content.ReadAsStringAsync();
+            var matchingNames = JsonDocument.Parse(listRaw).RootElement.GetProperty("data").EnumerateArray().Count(item => item.GetProperty("name").GetString() == sharedName);
+            matchingNames.Should().Be(concurrentRequests, "all {0} concurrently-created facilities should be independently visible and indistinguishable from one another by name alone, response body was: {1}", concurrentRequests, listRaw);
+        }
+        finally
+        {
+            await using var connection = new MySqlConnection(_fixture.Options.DbConnectionString);
+            await connection.OpenAsync();
+            await connection.ExecuteAsync("DELETE FROM facility WHERE name = @Name", new { Name = sharedName });
+        }
+    }
+
+    private async Task<(HttpStatusCode Status, string Raw)> CreateFacilityRawAsync(string name, string npi)
+    {
+        var payload = new { name, facility_npi = npi };
+        var response = await _fixture.Client.PostAsJsonAsync(OpenEmrEndpoints.Rest(_fixture.Options.SiteId, "facility"), payload, ExactCasing);
+        var raw = await response.Content.ReadAsStringAsync();
+        return (response.StatusCode, raw);
+    }
+
     private async Task<(HttpStatusCode Status, string Raw)> CreatePatientRawAsync(string uniqueSuffix)
     {
         var payload = new { fname = "Race", lname = uniqueSuffix, DOB = "1990-01-01", sex = "Female" };
