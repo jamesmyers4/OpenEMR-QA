@@ -17,10 +17,14 @@ export class LoginPage {
     await this.page.goto('/interface/login/login.php?site=default')
   }
 
-  async loginAs(username: string, password: string): Promise<void> {
+  async submitCredentials(username: string, password: string): Promise<void> {
     await this.usernameInput.fill(username)
     await this.passwordInput.fill(password)
     await this.submitButton.click()
+  }
+
+  async loginAs(username: string, password: string): Promise<void> {
+    await this.submitCredentials(username, password)
     await this.dismissRegistrationModalIfPresent()
   }
 
