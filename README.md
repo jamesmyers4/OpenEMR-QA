@@ -62,7 +62,7 @@ Bootstraps a dedicated OAuth2 client against the running stack, then fires `load
 
 **154 automated test cases** across the three core layers (127 C# + 27 UI), plus schema-validated FHIR contract checks, an axe-core accessibility gate, and a k6 load scenario. Coverage is tracked as scenario coverage against the matrix in `TEST-PLAN.md` (100% of that matrix is currently scaffolded), not line/branch coverage — see `TEST-PLAN.md`'s note on why that's the right metric for a third-party system under test.
 
-25 confirmed, source-root-caused defects are documented in `FINDINGS.md` (severity Critical→Low), found across the "straightforward coverage" build-out and a deliberate later "grey area" concurrency/reliability phase (`TEST-PLAN.md`'s Layer 4). Most are real OpenEMR-side bugs left intentionally undocumented-as-fixed, since the point of this project is to detect and document defects in the system under test, not patch a third-party codebase.
+26 confirmed, source-root-caused defects are documented in `FINDINGS.md` (severity Critical→Low), found across the "straightforward coverage" build-out and a deliberate later "grey area" concurrency/reliability phase (`TEST-PLAN.md`'s Layer 4). Most are real OpenEMR-side bugs left intentionally undocumented-as-fixed, since the point of this project is to detect and document defects in the system under test, not patch a third-party codebase.
 
 ## Repo layout
 
@@ -70,7 +70,7 @@ Bootstraps a dedicated OAuth2 client against the running stack, then fires `load
 CLAUDE.md                     instructions for Claude Code sessions in this repo
 CONTEXT.md                    permanent reference: purpose, architecture, stack decisions, known constraints/decision log
 TEST-PLAN.md                  full coverage matrix (Layers 1-4) and build order
-FINDINGS.md                   standalone write-ups of the 25 most serious confirmed defects
+FINDINGS.md                   standalone write-ups of the 26 most serious confirmed defects
 API-RESPONSE-SHAPES.md        per-resource quick reference: create status, list envelope, not-found shape
 ROADMAP.md                    forward-looking backlog, broken into individually workable sessions
 docker/
